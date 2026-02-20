@@ -1,10 +1,10 @@
-cd C:\actus (my path)
+go to 
 
-cd C:\actus\actus-riskservice
+actus-riskservice
 
 docker build -t actus-risksrv3-custom:latest .
 
-cd C:\actus\actus-docker-networks
+go to actus-docker-networks
 
 docker compose -f quickstart-docker-actus-rf20.yml down
 
