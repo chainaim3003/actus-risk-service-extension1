@@ -18,22 +18,52 @@ import org.actus.risksrv3.models.OldScenario;
 import org.actus.risksrv3.models.Scenario;
 import org.actus.risksrv3.models.TwoDimensionalPrepaymentModelData;
 import org.actus.risksrv3.models.TwoDimensionalDepositTrxModelData;
-import org.actus.risksrv3.models.CollateralLTVModelData;                          // ← NEW
+import org.actus.risksrv3.models.CollateralLTVModelData;
 import org.actus.risksrv3.models.ReferenceIndex;
 import org.actus.risksrv3.models.RiskFactorDescriptor;
 import org.actus.risksrv3.models.ScenarioDescriptor;
 import org.actus.risksrv3.models.StateAtInput;
+// ====== STABLECOIN MODEL DATA IMPORTS ======
+import org.actus.risksrv3.models.stablecoin.BackingRatioModelData;
+import org.actus.risksrv3.models.stablecoin.RedemptionPressureModelData;
+import org.actus.risksrv3.models.stablecoin.MaturityLadderModelData;
+import org.actus.risksrv3.models.stablecoin.AssetQualityModelData;
+import org.actus.risksrv3.models.stablecoin.ConcentrationDriftModelData;
+import org.actus.risksrv3.models.stablecoin.ComplianceDriftModelData;
+import org.actus.risksrv3.models.stablecoin.EarlyWarningModelData;
+import org.actus.risksrv3.models.stablecoin.ContinuousAttestationModelData;
+// ====== END STABLECOIN MODEL DATA IMPORTS ======
 import org.actus.risksrv3.repository.ReferenceIndexStore;
 import org.actus.risksrv3.repository.ScenarioStore;
 import org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
 import org.actus.risksrv3.repository.TwoDimensionalDepositTrxModelStore;
-import org.actus.risksrv3.repository.CollateralLTVModelStore;                     // ← NEW
+import org.actus.risksrv3.repository.CollateralLTVModelStore;
+// ====== STABLECOIN STORE IMPORTS ======
+import org.actus.risksrv3.repository.stablecoin.BackingRatioModelStore;
+import org.actus.risksrv3.repository.stablecoin.RedemptionPressureModelStore;
+import org.actus.risksrv3.repository.stablecoin.MaturityLadderModelStore;
+import org.actus.risksrv3.repository.stablecoin.AssetQualityModelStore;
+import org.actus.risksrv3.repository.stablecoin.ConcentrationDriftModelStore;
+import org.actus.risksrv3.repository.stablecoin.ComplianceDriftModelStore;
+import org.actus.risksrv3.repository.stablecoin.EarlyWarningModelStore;
+import org.actus.risksrv3.repository.stablecoin.ContinuousAttestationModelStore;
+// ====== END STABLECOIN STORE IMPORTS ======
 import org.actus.risksrv3.utils.MultiBehaviorRiskModel;
 import org.actus.risksrv3.utils.MultiMarketRiskModel;
 import org.actus.risksrv3.utils.TimeSeriesModel;
 import org.actus.risksrv3.utils.TwoDimensionalPrepaymentModel;
 import org.actus.risksrv3.utils.TwoDimensionalDepositTrxModel;
-import org.actus.risksrv3.utils.CollateralLTVModel;                               // ← NEW
+import org.actus.risksrv3.utils.CollateralLTVModel;
+// ====== STABLECOIN MODEL UTIL IMPORTS ======
+import org.actus.risksrv3.utils.stablecoin.BackingRatioModel;
+import org.actus.risksrv3.utils.stablecoin.RedemptionPressureModel;
+import org.actus.risksrv3.utils.stablecoin.MaturityLadderModel;
+import org.actus.risksrv3.utils.stablecoin.AssetQualityModel;
+import org.actus.risksrv3.utils.stablecoin.ConcentrationDriftModel;
+import org.actus.risksrv3.utils.stablecoin.ComplianceDriftModel;
+import org.actus.risksrv3.utils.stablecoin.EarlyWarningModel;
+import org.actus.risksrv3.utils.stablecoin.ContinuousAttestationModel;
+// ====== END STABLECOIN MODEL UTIL IMPORTS ======
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -54,8 +84,27 @@ public class RiskObservationHandler {
 	private TwoDimensionalPrepaymentModelStore twoDimensionalPrepaymentModelStore;
 	@Autowired
 	private TwoDimensionalDepositTrxModelStore twoDimensionalDepositTrxModelStore;
-	@Autowired                                                                     // ← NEW
-	private CollateralLTVModelStore collateralLTVModelStore;                       // ← NEW
+	@Autowired
+	private CollateralLTVModelStore collateralLTVModelStore;
+
+	// ====== STABLECOIN MODEL STORES ======
+	@Autowired
+	private BackingRatioModelStore backingRatioModelStore;
+	@Autowired
+	private RedemptionPressureModelStore redemptionPressureModelStore;
+	@Autowired
+	private MaturityLadderModelStore maturityLadderModelStore;
+	@Autowired
+	private AssetQualityModelStore assetQualityModelStore;
+	@Autowired
+	private ConcentrationDriftModelStore concentrationDriftModelStore;
+	@Autowired
+	private ComplianceDriftModelStore complianceDriftModelStore;
+	@Autowired
+	private EarlyWarningModelStore earlyWarningModelStore;
+	@Autowired
+	private ContinuousAttestationModelStore continuousAttestationModelStore;
+	// ====== END STABLECOIN MODEL STORES ======
 
 // local state attributes and objects 
 // these are the state variables used for processing simulation requests 
@@ -187,6 +236,113 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  // ================================================================
+			  // STABLECOIN BEHAVIORAL MODELS (8 models)
+			  // ================================================================
+			  else if (rfd.getRiskFactorType().equals("BackingRatioModel")) {
+				  Optional<BackingRatioModelData> odata =
+						  this.backingRatioModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp220 found BackingRatioModel ; rfxid = " + rfxid);
+					  BackingRatioModel mdl =
+							  new BackingRatioModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.BackingRatioModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("RedemptionPressureModel")) {
+				  Optional<RedemptionPressureModelData> odata =
+						  this.redemptionPressureModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp221 found RedemptionPressureModel ; rfxid = " + rfxid);
+					  RedemptionPressureModel mdl =
+							  new RedemptionPressureModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.RedemptionPressureModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("MaturityLadderModel")) {
+				  Optional<MaturityLadderModelData> odata =
+						  this.maturityLadderModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp222 found MaturityLadderModel ; rfxid = " + rfxid);
+					  MaturityLadderModel mdl =
+							  new MaturityLadderModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.MaturityLadderModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("AssetQualityModel")) {
+				  Optional<AssetQualityModelData> odata =
+						  this.assetQualityModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp223 found AssetQualityModel ; rfxid = " + rfxid);
+					  AssetQualityModel mdl =
+							  new AssetQualityModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.AssetQualityModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("ConcentrationDriftModel")) {
+				  Optional<ConcentrationDriftModelData> odata =
+						  this.concentrationDriftModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp224 found ConcentrationDriftModel ; rfxid = " + rfxid);
+					  ConcentrationDriftModel mdl =
+							  new ConcentrationDriftModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.ConcentrationDriftModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("ComplianceDriftModel")) {
+				  Optional<ComplianceDriftModelData> odata =
+						  this.complianceDriftModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp225 found ComplianceDriftModel ; rfxid = " + rfxid);
+					  ComplianceDriftModel mdl =
+							  new ComplianceDriftModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.ComplianceDriftModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("EarlyWarningModel")) {
+				  Optional<EarlyWarningModelData> odata =
+						  this.earlyWarningModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp226 found EarlyWarningModel ; rfxid = " + rfxid);
+					  EarlyWarningModel mdl =
+							  new EarlyWarningModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.EarlyWarningModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("ContinuousAttestationModel")) {
+				  Optional<ContinuousAttestationModelData> odata =
+						  this.continuousAttestationModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp227 found ContinuousAttestationModel ; rfxid = " + rfxid);
+					  ContinuousAttestationModel mdl =
+							  new ContinuousAttestationModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.stablecoin.ContinuousAttestationModelNotFoundException(rfxid);
+				  }
+			  }
+			  // ================================================================
 			  else {
 				  System.out.println("**** fnp208 unrecognized rfType= " + rfd.getRiskFactorType() );
 			  }
@@ -208,7 +364,8 @@ public class RiskObservationHandler {
 		  this.currentActivatedModels.clear();
 		  List<String> ppmdls  = contractModel.getAs("prepaymentModels");
 		  List<String> dwmdls  = contractModel.getAs("depositTrxModels");
-		  List<String> cltvmdls = contractModel.getAs("collateralModels");        // ← NEW
+		  List<String> cltvmdls = contractModel.getAs("collateralModels");
+		  List<String> scmdls   = contractModel.getAs("stablecoinModels");
 		  
 		  // combine all model lists
 		  List<String> mdls = new ArrayList<String>() ;
@@ -216,8 +373,10 @@ public class RiskObservationHandler {
 			  mdls.addAll(ppmdls);
 		  if (dwmdls != null)
 			  mdls.addAll(dwmdls);
-		  if (cltvmdls != null)                                                    // ← NEW
-			  mdls.addAll(cltvmdls);                                               // ← NEW
+		  if (cltvmdls != null)
+			  mdls.addAll(cltvmdls);
+		  if (scmdls != null)
+			  mdls.addAll(scmdls);
 		  
 		  List<CalloutData> observations = new ArrayList<CalloutData>();
 		  for (String mdl : mdls) {
