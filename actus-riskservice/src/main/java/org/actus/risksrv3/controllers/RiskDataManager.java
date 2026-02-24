@@ -24,6 +24,14 @@ import  org.actus.risksrv3.models.hybridtreasury1.CashConversionCycleModelData;
 import  org.actus.risksrv3.models.hybridtreasury1.FairValueComplianceModelData;
 import  org.actus.risksrv3.models.hybridtreasury1.IntegratedStressModelData;
 // ====== END HYBRID TREASURY MODEL IMPORTS ======
+// ====== SUPPLY CHAIN TARIFF MODEL IMPORTS ======
+import  org.actus.risksrv3.models.supplychaintariff1.TariffSpreadModelData;
+import  org.actus.risksrv3.models.supplychaintariff1.WorkingCapitalStressModelData;
+import  org.actus.risksrv3.models.supplychaintariff1.HedgeEffectivenessModelData;
+import  org.actus.risksrv3.models.supplychaintariff1.RevenueElasticityModelData;
+import  org.actus.risksrv3.models.supplychaintariff1.FXTariffCorrelationModelData;
+import  org.actus.risksrv3.models.supplychaintariff1.PortCongestionModelData;
+// ====== END SUPPLY CHAIN TARIFF MODEL IMPORTS ======
 import  org.actus.risksrv3.repository.ReferenceIndexStore;
 import  org.actus.risksrv3.repository.ScenarioStore;
 import  org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -49,6 +57,14 @@ import  org.actus.risksrv3.repository.hybridtreasury1.CashConversionCycleModelSt
 import  org.actus.risksrv3.repository.hybridtreasury1.FairValueComplianceModelStore;
 import  org.actus.risksrv3.repository.hybridtreasury1.IntegratedStressModelStore;
 // ====== END HYBRID TREASURY STORE IMPORTS ======
+// ====== SUPPLY CHAIN TARIFF STORE IMPORTS ======
+import  org.actus.risksrv3.repository.supplychaintariff1.TariffSpreadModelStore;
+import  org.actus.risksrv3.repository.supplychaintariff1.WorkingCapitalStressModelStore;
+import  org.actus.risksrv3.repository.supplychaintariff1.HedgeEffectivenessModelStore;
+import  org.actus.risksrv3.repository.supplychaintariff1.RevenueElasticityModelStore;
+import  org.actus.risksrv3.repository.supplychaintariff1.FXTariffCorrelationModelStore;
+import  org.actus.risksrv3.repository.supplychaintariff1.PortCongestionModelStore;
+// ====== END SUPPLY CHAIN TARIFF STORE IMPORTS ======
 import  org.springframework.beans.factory.annotation.Autowired;
 import  org.springframework.beans.factory.annotation.Value;
 import  org.springframework.web.bind.annotation.*;
@@ -106,6 +122,20 @@ public class RiskDataManager {
 	@Autowired
 	private IntegratedStressModelStore integratedStressModelStore;
 	// ====== END HYBRID TREASURY MODEL STORES ======
+	// ====== SUPPLY CHAIN TARIFF MODEL STORES ======
+	@Autowired
+	private TariffSpreadModelStore tariffSpreadModelStore;
+	@Autowired
+	private WorkingCapitalStressModelStore workingCapitalStressModelStore;
+	@Autowired
+	private HedgeEffectivenessModelStore hedgeEffectivenessModelStore;
+	@Autowired
+	private RevenueElasticityModelStore revenueElasticityModelStore;
+	@Autowired
+	private FXTariffCorrelationModelStore fxTariffCorrelationModelStore;
+	@Autowired
+	private PortCongestionModelStore portCongestionModelStore;
+	// ====== END SUPPLY CHAIN TARIFF MODEL STORES ======
 	
 	private
 	@Value("${spring.data.mongodb.host}")
@@ -595,5 +625,144 @@ public class RiskDataManager {
     @GetMapping("/findAllIntegratedStressModels")
     public List<IntegratedStressModelData> getIntegratedStressModels() {
         return integratedStressModelStore.findAll();
+    }
+
+    // =========================================================================
+    // SUPPLY CHAIN TARIFF BEHAVIORAL MODEL CRUD ENDPOINTS (6 models × 4 = 24)
+    // riskFactorType values in scenario descriptors:
+    //   "TariffSpreadModel", "WorkingCapitalStressModel",
+    //   "HedgeEffectivenessModel", "RevenueElasticityModel",
+    //   "FXTariffCorrelationModel", "PortCongestionModel"
+    //
+    // GTAP Armington elasticity-based models for India-US tariff corridor.
+    // References:
+    //   Hertel (1997), Armington (1969), Corong et al. (2017),
+    //   Ahmad, Montgomery & Schreiber (2020), GTAP Database v11.
+    // =========================================================================
+
+    // --- 7.1 TariffSpreadModel ---
+    @PostMapping("/addTariffSpreadModel")
+    public String saveTariffSpreadModelData(
+            @RequestBody TariffSpreadModelData data) {
+        tariffSpreadModelStore.save(data);
+        return "TariffSpreadModel added successfully\n";
+    }
+    @DeleteMapping("/deleteTariffSpreadModel/{id}")
+    public String deleteTariffSpreadModel(@PathVariable String id) {
+        tariffSpreadModelStore.deleteById(id);
+        return "TariffSpreadModel deleted successfully\n";
+    }
+    @GetMapping("/findTariffSpreadModel/{id}")
+    public Optional<TariffSpreadModelData> findTariffSpreadModelData(@PathVariable String id) {
+        return tariffSpreadModelStore.findById(id);
+    }
+    @GetMapping("/findAllTariffSpreadModels")
+    public List<TariffSpreadModelData> getTariffSpreadModels() {
+        return tariffSpreadModelStore.findAll();
+    }
+
+    // --- 7.2 WorkingCapitalStressModel ---
+    @PostMapping("/addWorkingCapitalStressModel")
+    public String saveWorkingCapitalStressModelData(
+            @RequestBody WorkingCapitalStressModelData data) {
+        workingCapitalStressModelStore.save(data);
+        return "WorkingCapitalStressModel added successfully\n";
+    }
+    @DeleteMapping("/deleteWorkingCapitalStressModel/{id}")
+    public String deleteWorkingCapitalStressModel(@PathVariable String id) {
+        workingCapitalStressModelStore.deleteById(id);
+        return "WorkingCapitalStressModel deleted successfully\n";
+    }
+    @GetMapping("/findWorkingCapitalStressModel/{id}")
+    public Optional<WorkingCapitalStressModelData> findWorkingCapitalStressModelData(@PathVariable String id) {
+        return workingCapitalStressModelStore.findById(id);
+    }
+    @GetMapping("/findAllWorkingCapitalStressModels")
+    public List<WorkingCapitalStressModelData> getWorkingCapitalStressModels() {
+        return workingCapitalStressModelStore.findAll();
+    }
+
+    // --- 7.3 HedgeEffectivenessModel ---
+    @PostMapping("/addHedgeEffectivenessModel")
+    public String saveHedgeEffectivenessModelData(
+            @RequestBody HedgeEffectivenessModelData data) {
+        hedgeEffectivenessModelStore.save(data);
+        return "HedgeEffectivenessModel added successfully\n";
+    }
+    @DeleteMapping("/deleteHedgeEffectivenessModel/{id}")
+    public String deleteHedgeEffectivenessModel(@PathVariable String id) {
+        hedgeEffectivenessModelStore.deleteById(id);
+        return "HedgeEffectivenessModel deleted successfully\n";
+    }
+    @GetMapping("/findHedgeEffectivenessModel/{id}")
+    public Optional<HedgeEffectivenessModelData> findHedgeEffectivenessModelData(@PathVariable String id) {
+        return hedgeEffectivenessModelStore.findById(id);
+    }
+    @GetMapping("/findAllHedgeEffectivenessModels")
+    public List<HedgeEffectivenessModelData> getHedgeEffectivenessModels() {
+        return hedgeEffectivenessModelStore.findAll();
+    }
+
+    // --- 7.4 RevenueElasticityModel ---
+    @PostMapping("/addRevenueElasticityModel")
+    public String saveRevenueElasticityModelData(
+            @RequestBody RevenueElasticityModelData data) {
+        revenueElasticityModelStore.save(data);
+        return "RevenueElasticityModel added successfully\n";
+    }
+    @DeleteMapping("/deleteRevenueElasticityModel/{id}")
+    public String deleteRevenueElasticityModel(@PathVariable String id) {
+        revenueElasticityModelStore.deleteById(id);
+        return "RevenueElasticityModel deleted successfully\n";
+    }
+    @GetMapping("/findRevenueElasticityModel/{id}")
+    public Optional<RevenueElasticityModelData> findRevenueElasticityModelData(@PathVariable String id) {
+        return revenueElasticityModelStore.findById(id);
+    }
+    @GetMapping("/findAllRevenueElasticityModels")
+    public List<RevenueElasticityModelData> getRevenueElasticityModels() {
+        return revenueElasticityModelStore.findAll();
+    }
+
+    // --- 7.5 FXTariffCorrelationModel ---
+    @PostMapping("/addFXTariffCorrelationModel")
+    public String saveFXTariffCorrelationModelData(
+            @RequestBody FXTariffCorrelationModelData data) {
+        fxTariffCorrelationModelStore.save(data);
+        return "FXTariffCorrelationModel added successfully\n";
+    }
+    @DeleteMapping("/deleteFXTariffCorrelationModel/{id}")
+    public String deleteFXTariffCorrelationModel(@PathVariable String id) {
+        fxTariffCorrelationModelStore.deleteById(id);
+        return "FXTariffCorrelationModel deleted successfully\n";
+    }
+    @GetMapping("/findFXTariffCorrelationModel/{id}")
+    public Optional<FXTariffCorrelationModelData> findFXTariffCorrelationModelData(@PathVariable String id) {
+        return fxTariffCorrelationModelStore.findById(id);
+    }
+    @GetMapping("/findAllFXTariffCorrelationModels")
+    public List<FXTariffCorrelationModelData> getFXTariffCorrelationModels() {
+        return fxTariffCorrelationModelStore.findAll();
+    }
+
+    // --- 7.6 PortCongestionModel ---
+    @PostMapping("/addPortCongestionModel")
+    public String savePortCongestionModelData(
+            @RequestBody PortCongestionModelData data) {
+        portCongestionModelStore.save(data);
+        return "PortCongestionModel added successfully\n";
+    }
+    @DeleteMapping("/deletePortCongestionModel/{id}")
+    public String deletePortCongestionModel(@PathVariable String id) {
+        portCongestionModelStore.deleteById(id);
+        return "PortCongestionModel deleted successfully\n";
+    }
+    @GetMapping("/findPortCongestionModel/{id}")
+    public Optional<PortCongestionModelData> findPortCongestionModelData(@PathVariable String id) {
+        return portCongestionModelStore.findById(id);
+    }
+    @GetMapping("/findAllPortCongestionModels")
+    public List<PortCongestionModelData> getPortCongestionModels() {
+        return portCongestionModelStore.findAll();
     }
 }

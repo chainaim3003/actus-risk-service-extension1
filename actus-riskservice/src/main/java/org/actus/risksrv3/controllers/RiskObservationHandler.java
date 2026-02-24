@@ -43,6 +43,14 @@ import org.actus.risksrv3.models.hybridtreasury1.CashConversionCycleModelData;
 import org.actus.risksrv3.models.hybridtreasury1.FairValueComplianceModelData;
 import org.actus.risksrv3.models.hybridtreasury1.IntegratedStressModelData;
 // ====== END HYBRID TREASURY MODEL DATA IMPORTS ======
+// ====== SUPPLY CHAIN TARIFF MODEL DATA IMPORTS ======
+import org.actus.risksrv3.models.supplychaintariff1.TariffSpreadModelData;
+import org.actus.risksrv3.models.supplychaintariff1.WorkingCapitalStressModelData;
+import org.actus.risksrv3.models.supplychaintariff1.HedgeEffectivenessModelData;
+import org.actus.risksrv3.models.supplychaintariff1.RevenueElasticityModelData;
+import org.actus.risksrv3.models.supplychaintariff1.FXTariffCorrelationModelData;
+import org.actus.risksrv3.models.supplychaintariff1.PortCongestionModelData;
+// ====== END SUPPLY CHAIN TARIFF MODEL DATA IMPORTS ======
 import org.actus.risksrv3.repository.ReferenceIndexStore;
 import org.actus.risksrv3.repository.ScenarioStore;
 import org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -68,6 +76,14 @@ import org.actus.risksrv3.repository.hybridtreasury1.CashConversionCycleModelSto
 import org.actus.risksrv3.repository.hybridtreasury1.FairValueComplianceModelStore;
 import org.actus.risksrv3.repository.hybridtreasury1.IntegratedStressModelStore;
 // ====== END HYBRID TREASURY STORE IMPORTS ======
+// ====== SUPPLY CHAIN TARIFF STORE IMPORTS ======
+import org.actus.risksrv3.repository.supplychaintariff1.TariffSpreadModelStore;
+import org.actus.risksrv3.repository.supplychaintariff1.WorkingCapitalStressModelStore;
+import org.actus.risksrv3.repository.supplychaintariff1.HedgeEffectivenessModelStore;
+import org.actus.risksrv3.repository.supplychaintariff1.RevenueElasticityModelStore;
+import org.actus.risksrv3.repository.supplychaintariff1.FXTariffCorrelationModelStore;
+import org.actus.risksrv3.repository.supplychaintariff1.PortCongestionModelStore;
+// ====== END SUPPLY CHAIN TARIFF STORE IMPORTS ======
 import org.actus.risksrv3.utils.MultiBehaviorRiskModel;
 import org.actus.risksrv3.utils.MultiMarketRiskModel;
 import org.actus.risksrv3.utils.TimeSeriesModel;
@@ -94,6 +110,14 @@ import org.actus.risksrv3.utils.hybridtreasury1.CashConversionCycleModel;
 import org.actus.risksrv3.utils.hybridtreasury1.FairValueComplianceModel;
 import org.actus.risksrv3.utils.hybridtreasury1.IntegratedStressModel;
 // ====== END HYBRID TREASURY MODEL UTIL IMPORTS ======
+// ====== SUPPLY CHAIN TARIFF MODEL UTIL IMPORTS ======
+import org.actus.risksrv3.utils.supplychaintariff1.TariffSpreadModel;
+import org.actus.risksrv3.utils.supplychaintariff1.WorkingCapitalStressModel;
+import org.actus.risksrv3.utils.supplychaintariff1.HedgeEffectivenessModel;
+import org.actus.risksrv3.utils.supplychaintariff1.RevenueElasticityModel;
+import org.actus.risksrv3.utils.supplychaintariff1.FXTariffCorrelationModel;
+import org.actus.risksrv3.utils.supplychaintariff1.PortCongestionModel;
+// ====== END SUPPLY CHAIN TARIFF MODEL UTIL IMPORTS ======
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -153,6 +177,20 @@ public class RiskObservationHandler {
 	@Autowired
 	private IntegratedStressModelStore integratedStressModelStore;
 	// ====== END HYBRID TREASURY MODEL STORES ======
+	// ====== SUPPLY CHAIN TARIFF MODEL STORES ======
+	@Autowired
+	private TariffSpreadModelStore tariffSpreadModelStore;
+	@Autowired
+	private WorkingCapitalStressModelStore workingCapitalStressModelStore;
+	@Autowired
+	private HedgeEffectivenessModelStore hedgeEffectivenessModelStore;
+	@Autowired
+	private RevenueElasticityModelStore revenueElasticityModelStore;
+	@Autowired
+	private FXTariffCorrelationModelStore fxTariffCorrelationModelStore;
+	@Autowired
+	private PortCongestionModelStore portCongestionModelStore;
+	// ====== END SUPPLY CHAIN TARIFF MODEL STORES ======
 
 // local state attributes and objects 
 // these are the state variables used for processing simulation requests 
@@ -498,6 +536,88 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  // ================================================================
+			  // SUPPLY CHAIN TARIFF BEHAVIORAL MODELS (6 models)
+			  // GTAP Armington elasticity-based, India-US tariff corridor
+			  // ================================================================
+			  else if (rfd.getRiskFactorType().equals("TariffSpreadModel")) {
+				  Optional<TariffSpreadModelData> odata =
+						  this.tariffSpreadModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp240 found TariffSpreadModel ; rfxid = " + rfxid);
+					  TariffSpreadModel mdl =
+							  new TariffSpreadModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.supplychaintariff1.TariffSpreadModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("WorkingCapitalStressModel")) {
+				  Optional<WorkingCapitalStressModelData> odata =
+						  this.workingCapitalStressModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp241 found WorkingCapitalStressModel ; rfxid = " + rfxid);
+					  WorkingCapitalStressModel mdl =
+							  new WorkingCapitalStressModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.supplychaintariff1.WorkingCapitalStressModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("HedgeEffectivenessModel")) {
+				  Optional<HedgeEffectivenessModelData> odata =
+						  this.hedgeEffectivenessModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp242 found HedgeEffectivenessModel ; rfxid = " + rfxid);
+					  HedgeEffectivenessModel mdl =
+							  new HedgeEffectivenessModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.supplychaintariff1.HedgeEffectivenessModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("RevenueElasticityModel")) {
+				  Optional<RevenueElasticityModelData> odata =
+						  this.revenueElasticityModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp243 found RevenueElasticityModel ; rfxid = " + rfxid);
+					  RevenueElasticityModel mdl =
+							  new RevenueElasticityModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.supplychaintariff1.RevenueElasticityModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("FXTariffCorrelationModel")) {
+				  Optional<FXTariffCorrelationModelData> odata =
+						  this.fxTariffCorrelationModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp244 found FXTariffCorrelationModel ; rfxid = " + rfxid);
+					  FXTariffCorrelationModel mdl =
+							  new FXTariffCorrelationModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.supplychaintariff1.FXTariffCorrelationModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("PortCongestionModel")) {
+				  Optional<PortCongestionModelData> odata =
+						  this.portCongestionModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp245 found PortCongestionModel ; rfxid = " + rfxid);
+					  PortCongestionModel mdl =
+							  new PortCongestionModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.supplychaintariff1.PortCongestionModelNotFoundException(rfxid);
+				  }
+			  }
+			  // ================================================================
 			  else {
 				  System.out.println("**** fnp208 unrecognized rfType= " + rfd.getRiskFactorType() );
 			  }
@@ -535,6 +655,9 @@ public class RiskObservationHandler {
 		  List<String> trmdls  = contractModel.getAs("treasuryModels");
 		  if (trmdls != null)
 			  mdls.addAll(trmdls);
+		  List<String> tariffmdls = contractModel.getAs("tariffModels");
+		  if (tariffmdls != null)
+			  mdls.addAll(tariffmdls);
 		  
 		  List<CalloutData> observations = new ArrayList<CalloutData>();
 		  for (String mdl : mdls) {
