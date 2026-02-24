@@ -14,6 +14,16 @@ import  org.actus.risksrv3.models.stablecoin.ComplianceDriftModelData;
 import  org.actus.risksrv3.models.stablecoin.EarlyWarningModelData;
 import  org.actus.risksrv3.models.stablecoin.ContinuousAttestationModelData;
 // ====== END STABLECOIN MODEL IMPORTS ======
+// ====== HYBRID TREASURY MODEL IMPORTS ======
+import  org.actus.risksrv3.models.hybridtreasury1.AllocationDriftModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.LiquidityBufferModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.PegStressModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.RegulatoryDeRiskModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.YieldArbitrageModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.CashConversionCycleModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.FairValueComplianceModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.IntegratedStressModelData;
+// ====== END HYBRID TREASURY MODEL IMPORTS ======
 import  org.actus.risksrv3.repository.ReferenceIndexStore;
 import  org.actus.risksrv3.repository.ScenarioStore;
 import  org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -29,6 +39,16 @@ import  org.actus.risksrv3.repository.stablecoin.ComplianceDriftModelStore;
 import  org.actus.risksrv3.repository.stablecoin.EarlyWarningModelStore;
 import  org.actus.risksrv3.repository.stablecoin.ContinuousAttestationModelStore;
 // ====== END STABLECOIN STORE IMPORTS ======
+// ====== HYBRID TREASURY STORE IMPORTS ======
+import  org.actus.risksrv3.repository.hybridtreasury1.AllocationDriftModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.LiquidityBufferModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.PegStressModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.RegulatoryDeRiskModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.YieldArbitrageModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.CashConversionCycleModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.FairValueComplianceModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.IntegratedStressModelStore;
+// ====== END HYBRID TREASURY STORE IMPORTS ======
 import  org.springframework.beans.factory.annotation.Autowired;
 import  org.springframework.beans.factory.annotation.Value;
 import  org.springframework.web.bind.annotation.*;
@@ -68,6 +88,24 @@ public class RiskDataManager {
 	@Autowired
 	private ContinuousAttestationModelStore continuousAttestationModelStore;
 	// ====== END STABLECOIN MODEL STORES ======
+	// ====== HYBRID TREASURY MODEL STORES ======
+	@Autowired
+	private AllocationDriftModelStore allocationDriftModelStore;
+	@Autowired
+	private LiquidityBufferModelStore liquidityBufferModelStore;
+	@Autowired
+	private PegStressModelStore pegStressModelStore;
+	@Autowired
+	private RegulatoryDeRiskModelStore regulatoryDeRiskModelStore;
+	@Autowired
+	private YieldArbitrageModelStore yieldArbitrageModelStore;
+	@Autowired
+	private CashConversionCycleModelStore cashConversionCycleModelStore;
+	@Autowired
+	private FairValueComplianceModelStore fairValueComplianceModelStore;
+	@Autowired
+	private IntegratedStressModelStore integratedStressModelStore;
+	// ====== END HYBRID TREASURY MODEL STORES ======
 	
 	private
 	@Value("${spring.data.mongodb.host}")
@@ -381,5 +419,181 @@ public class RiskDataManager {
     @GetMapping("/findAllContinuousAttestationModels")
     public List<ContinuousAttestationModelData> getContinuousAttestationModels() {
         return continuousAttestationModelStore.findAll();
+    }
+
+    // =========================================================================
+    // HYBRID TREASURY BEHAVIORAL MODEL CRUD ENDPOINTS (8 models × 4 = 32)
+    // riskFactorType values in scenario descriptors:
+    //   "AllocationDriftModel", "LiquidityBufferModel", "PegStressModel",
+    //   "RegulatoryDeRiskModel", "YieldArbitrageModel", "CashConversionCycleModel",
+    //   "FairValueComplianceModel", "IntegratedStressModel"
+    // =========================================================================
+
+    // --- 5.1 AllocationDriftModel ---
+    @PostMapping("/addAllocationDriftModel")
+    public String saveAllocationDriftModelData(
+            @RequestBody AllocationDriftModelData data) {
+        allocationDriftModelStore.save(data);
+        return "AllocationDriftModel added successfully\n";
+    }
+    @DeleteMapping("/deleteAllocationDriftModel/{id}")
+    public String deleteAllocationDriftModel(@PathVariable String id) {
+        allocationDriftModelStore.deleteById(id);
+        return "AllocationDriftModel deleted successfully\n";
+    }
+    @GetMapping("/findAllocationDriftModel/{id}")
+    public Optional<AllocationDriftModelData> findAllocationDriftModelData(@PathVariable String id) {
+        return allocationDriftModelStore.findById(id);
+    }
+    @GetMapping("/findAllAllocationDriftModels")
+    public List<AllocationDriftModelData> getAllocationDriftModels() {
+        return allocationDriftModelStore.findAll();
+    }
+
+    // --- 5.2 LiquidityBufferModel ---
+    @PostMapping("/addLiquidityBufferModel")
+    public String saveLiquidityBufferModelData(
+            @RequestBody LiquidityBufferModelData data) {
+        liquidityBufferModelStore.save(data);
+        return "LiquidityBufferModel added successfully\n";
+    }
+    @DeleteMapping("/deleteLiquidityBufferModel/{id}")
+    public String deleteLiquidityBufferModel(@PathVariable String id) {
+        liquidityBufferModelStore.deleteById(id);
+        return "LiquidityBufferModel deleted successfully\n";
+    }
+    @GetMapping("/findLiquidityBufferModel/{id}")
+    public Optional<LiquidityBufferModelData> findLiquidityBufferModelData(@PathVariable String id) {
+        return liquidityBufferModelStore.findById(id);
+    }
+    @GetMapping("/findAllLiquidityBufferModels")
+    public List<LiquidityBufferModelData> getLiquidityBufferModels() {
+        return liquidityBufferModelStore.findAll();
+    }
+
+    // --- 5.3 PegStressModel ---
+    @PostMapping("/addPegStressModel")
+    public String savePegStressModelData(
+            @RequestBody PegStressModelData data) {
+        pegStressModelStore.save(data);
+        return "PegStressModel added successfully\n";
+    }
+    @DeleteMapping("/deletePegStressModel/{id}")
+    public String deletePegStressModel(@PathVariable String id) {
+        pegStressModelStore.deleteById(id);
+        return "PegStressModel deleted successfully\n";
+    }
+    @GetMapping("/findPegStressModel/{id}")
+    public Optional<PegStressModelData> findPegStressModelData(@PathVariable String id) {
+        return pegStressModelStore.findById(id);
+    }
+    @GetMapping("/findAllPegStressModels")
+    public List<PegStressModelData> getPegStressModels() {
+        return pegStressModelStore.findAll();
+    }
+
+    // --- 5.4 RegulatoryDeRiskModel ---
+    @PostMapping("/addRegulatoryDeRiskModel")
+    public String saveRegulatoryDeRiskModelData(
+            @RequestBody RegulatoryDeRiskModelData data) {
+        regulatoryDeRiskModelStore.save(data);
+        return "RegulatoryDeRiskModel added successfully\n";
+    }
+    @DeleteMapping("/deleteRegulatoryDeRiskModel/{id}")
+    public String deleteRegulatoryDeRiskModel(@PathVariable String id) {
+        regulatoryDeRiskModelStore.deleteById(id);
+        return "RegulatoryDeRiskModel deleted successfully\n";
+    }
+    @GetMapping("/findRegulatoryDeRiskModel/{id}")
+    public Optional<RegulatoryDeRiskModelData> findRegulatoryDeRiskModelData(@PathVariable String id) {
+        return regulatoryDeRiskModelStore.findById(id);
+    }
+    @GetMapping("/findAllRegulatoryDeRiskModels")
+    public List<RegulatoryDeRiskModelData> getRegulatoryDeRiskModels() {
+        return regulatoryDeRiskModelStore.findAll();
+    }
+
+    // --- 5.5 YieldArbitrageModel ---
+    @PostMapping("/addYieldArbitrageModel")
+    public String saveYieldArbitrageModelData(
+            @RequestBody YieldArbitrageModelData data) {
+        yieldArbitrageModelStore.save(data);
+        return "YieldArbitrageModel added successfully\n";
+    }
+    @DeleteMapping("/deleteYieldArbitrageModel/{id}")
+    public String deleteYieldArbitrageModel(@PathVariable String id) {
+        yieldArbitrageModelStore.deleteById(id);
+        return "YieldArbitrageModel deleted successfully\n";
+    }
+    @GetMapping("/findYieldArbitrageModel/{id}")
+    public Optional<YieldArbitrageModelData> findYieldArbitrageModelData(@PathVariable String id) {
+        return yieldArbitrageModelStore.findById(id);
+    }
+    @GetMapping("/findAllYieldArbitrageModels")
+    public List<YieldArbitrageModelData> getYieldArbitrageModels() {
+        return yieldArbitrageModelStore.findAll();
+    }
+
+    // --- 5.6 CashConversionCycleModel ---
+    @PostMapping("/addCashConversionCycleModel")
+    public String saveCashConversionCycleModelData(
+            @RequestBody CashConversionCycleModelData data) {
+        cashConversionCycleModelStore.save(data);
+        return "CashConversionCycleModel added successfully\n";
+    }
+    @DeleteMapping("/deleteCashConversionCycleModel/{id}")
+    public String deleteCashConversionCycleModel(@PathVariable String id) {
+        cashConversionCycleModelStore.deleteById(id);
+        return "CashConversionCycleModel deleted successfully\n";
+    }
+    @GetMapping("/findCashConversionCycleModel/{id}")
+    public Optional<CashConversionCycleModelData> findCashConversionCycleModelData(@PathVariable String id) {
+        return cashConversionCycleModelStore.findById(id);
+    }
+    @GetMapping("/findAllCashConversionCycleModels")
+    public List<CashConversionCycleModelData> getCashConversionCycleModels() {
+        return cashConversionCycleModelStore.findAll();
+    }
+
+    // --- 5.7 FairValueComplianceModel ---
+    @PostMapping("/addFairValueComplianceModel")
+    public String saveFairValueComplianceModelData(
+            @RequestBody FairValueComplianceModelData data) {
+        fairValueComplianceModelStore.save(data);
+        return "FairValueComplianceModel added successfully\n";
+    }
+    @DeleteMapping("/deleteFairValueComplianceModel/{id}")
+    public String deleteFairValueComplianceModel(@PathVariable String id) {
+        fairValueComplianceModelStore.deleteById(id);
+        return "FairValueComplianceModel deleted successfully\n";
+    }
+    @GetMapping("/findFairValueComplianceModel/{id}")
+    public Optional<FairValueComplianceModelData> findFairValueComplianceModelData(@PathVariable String id) {
+        return fairValueComplianceModelStore.findById(id);
+    }
+    @GetMapping("/findAllFairValueComplianceModels")
+    public List<FairValueComplianceModelData> getFairValueComplianceModels() {
+        return fairValueComplianceModelStore.findAll();
+    }
+
+    // --- 5.8 IntegratedStressModel ---
+    @PostMapping("/addIntegratedStressModel")
+    public String saveIntegratedStressModelData(
+            @RequestBody IntegratedStressModelData data) {
+        integratedStressModelStore.save(data);
+        return "IntegratedStressModel added successfully\n";
+    }
+    @DeleteMapping("/deleteIntegratedStressModel/{id}")
+    public String deleteIntegratedStressModel(@PathVariable String id) {
+        integratedStressModelStore.deleteById(id);
+        return "IntegratedStressModel deleted successfully\n";
+    }
+    @GetMapping("/findIntegratedStressModel/{id}")
+    public Optional<IntegratedStressModelData> findIntegratedStressModelData(@PathVariable String id) {
+        return integratedStressModelStore.findById(id);
+    }
+    @GetMapping("/findAllIntegratedStressModels")
+    public List<IntegratedStressModelData> getIntegratedStressModels() {
+        return integratedStressModelStore.findAll();
     }
 }

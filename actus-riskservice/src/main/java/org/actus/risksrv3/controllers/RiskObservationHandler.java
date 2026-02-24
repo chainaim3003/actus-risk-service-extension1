@@ -33,6 +33,16 @@ import org.actus.risksrv3.models.stablecoin.ComplianceDriftModelData;
 import org.actus.risksrv3.models.stablecoin.EarlyWarningModelData;
 import org.actus.risksrv3.models.stablecoin.ContinuousAttestationModelData;
 // ====== END STABLECOIN MODEL DATA IMPORTS ======
+// ====== HYBRID TREASURY MODEL DATA IMPORTS ======
+import org.actus.risksrv3.models.hybridtreasury1.AllocationDriftModelData;
+import org.actus.risksrv3.models.hybridtreasury1.LiquidityBufferModelData;
+import org.actus.risksrv3.models.hybridtreasury1.PegStressModelData;
+import org.actus.risksrv3.models.hybridtreasury1.RegulatoryDeRiskModelData;
+import org.actus.risksrv3.models.hybridtreasury1.YieldArbitrageModelData;
+import org.actus.risksrv3.models.hybridtreasury1.CashConversionCycleModelData;
+import org.actus.risksrv3.models.hybridtreasury1.FairValueComplianceModelData;
+import org.actus.risksrv3.models.hybridtreasury1.IntegratedStressModelData;
+// ====== END HYBRID TREASURY MODEL DATA IMPORTS ======
 import org.actus.risksrv3.repository.ReferenceIndexStore;
 import org.actus.risksrv3.repository.ScenarioStore;
 import org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -48,6 +58,16 @@ import org.actus.risksrv3.repository.stablecoin.ComplianceDriftModelStore;
 import org.actus.risksrv3.repository.stablecoin.EarlyWarningModelStore;
 import org.actus.risksrv3.repository.stablecoin.ContinuousAttestationModelStore;
 // ====== END STABLECOIN STORE IMPORTS ======
+// ====== HYBRID TREASURY STORE IMPORTS ======
+import org.actus.risksrv3.repository.hybridtreasury1.AllocationDriftModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.LiquidityBufferModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.PegStressModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.RegulatoryDeRiskModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.YieldArbitrageModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.CashConversionCycleModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.FairValueComplianceModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.IntegratedStressModelStore;
+// ====== END HYBRID TREASURY STORE IMPORTS ======
 import org.actus.risksrv3.utils.MultiBehaviorRiskModel;
 import org.actus.risksrv3.utils.MultiMarketRiskModel;
 import org.actus.risksrv3.utils.TimeSeriesModel;
@@ -64,6 +84,16 @@ import org.actus.risksrv3.utils.stablecoin.ComplianceDriftModel;
 import org.actus.risksrv3.utils.stablecoin.EarlyWarningModel;
 import org.actus.risksrv3.utils.stablecoin.ContinuousAttestationModel;
 // ====== END STABLECOIN MODEL UTIL IMPORTS ======
+// ====== HYBRID TREASURY MODEL UTIL IMPORTS ======
+import org.actus.risksrv3.utils.hybridtreasury1.AllocationDriftModel;
+import org.actus.risksrv3.utils.hybridtreasury1.LiquidityBufferModel;
+import org.actus.risksrv3.utils.hybridtreasury1.PegStressModel;
+import org.actus.risksrv3.utils.hybridtreasury1.RegulatoryDeRiskModel;
+import org.actus.risksrv3.utils.hybridtreasury1.YieldArbitrageModel;
+import org.actus.risksrv3.utils.hybridtreasury1.CashConversionCycleModel;
+import org.actus.risksrv3.utils.hybridtreasury1.FairValueComplianceModel;
+import org.actus.risksrv3.utils.hybridtreasury1.IntegratedStressModel;
+// ====== END HYBRID TREASURY MODEL UTIL IMPORTS ======
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -105,6 +135,24 @@ public class RiskObservationHandler {
 	@Autowired
 	private ContinuousAttestationModelStore continuousAttestationModelStore;
 	// ====== END STABLECOIN MODEL STORES ======
+	// ====== HYBRID TREASURY MODEL STORES ======
+	@Autowired
+	private AllocationDriftModelStore allocationDriftModelStore;
+	@Autowired
+	private LiquidityBufferModelStore liquidityBufferModelStore;
+	@Autowired
+	private PegStressModelStore pegStressModelStore;
+	@Autowired
+	private RegulatoryDeRiskModelStore regulatoryDeRiskModelStore;
+	@Autowired
+	private YieldArbitrageModelStore yieldArbitrageModelStore;
+	@Autowired
+	private CashConversionCycleModelStore cashConversionCycleModelStore;
+	@Autowired
+	private FairValueComplianceModelStore fairValueComplianceModelStore;
+	@Autowired
+	private IntegratedStressModelStore integratedStressModelStore;
+	// ====== END HYBRID TREASURY MODEL STORES ======
 
 // local state attributes and objects 
 // these are the state variables used for processing simulation requests 
@@ -343,6 +391,113 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  // ================================================================
+			  // HYBRID TREASURY BEHAVIORAL MODELS (8 models)
+			  // ================================================================
+			  else if (rfd.getRiskFactorType().equals("AllocationDriftModel")) {
+				  Optional<AllocationDriftModelData> odata =
+						  this.allocationDriftModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp230 found AllocationDriftModel ; rfxid = " + rfxid);
+					  AllocationDriftModel mdl =
+							  new AllocationDriftModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.AllocationDriftModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("LiquidityBufferModel")) {
+				  Optional<LiquidityBufferModelData> odata =
+						  this.liquidityBufferModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp231 found LiquidityBufferModel ; rfxid = " + rfxid);
+					  LiquidityBufferModel mdl =
+							  new LiquidityBufferModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.LiquidityBufferModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("PegStressModel")) {
+				  Optional<PegStressModelData> odata =
+						  this.pegStressModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp232 found PegStressModel ; rfxid = " + rfxid);
+					  PegStressModel mdl =
+							  new PegStressModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.PegStressModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("RegulatoryDeRiskModel")) {
+				  Optional<RegulatoryDeRiskModelData> odata =
+						  this.regulatoryDeRiskModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp233 found RegulatoryDeRiskModel ; rfxid = " + rfxid);
+					  RegulatoryDeRiskModel mdl =
+							  new RegulatoryDeRiskModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.RegulatoryDeRiskModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("YieldArbitrageModel")) {
+				  Optional<YieldArbitrageModelData> odata =
+						  this.yieldArbitrageModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp234 found YieldArbitrageModel ; rfxid = " + rfxid);
+					  YieldArbitrageModel mdl =
+							  new YieldArbitrageModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.YieldArbitrageModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("CashConversionCycleModel")) {
+				  Optional<CashConversionCycleModelData> odata =
+						  this.cashConversionCycleModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp235 found CashConversionCycleModel ; rfxid = " + rfxid);
+					  CashConversionCycleModel mdl =
+							  new CashConversionCycleModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.CashConversionCycleModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("FairValueComplianceModel")) {
+				  Optional<FairValueComplianceModelData> odata =
+						  this.fairValueComplianceModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp236 found FairValueComplianceModel ; rfxid = " + rfxid);
+					  FairValueComplianceModel mdl =
+							  new FairValueComplianceModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.FairValueComplianceModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("IntegratedStressModel")) {
+				  Optional<IntegratedStressModelData> odata =
+						  this.integratedStressModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp237 found IntegratedStressModel ; rfxid = " + rfxid);
+					  IntegratedStressModel mdl =
+							  new IntegratedStressModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.hybridtreasury1.IntegratedStressModelNotFoundException(rfxid);
+				  }
+			  }
+			  // ================================================================
 			  else {
 				  System.out.println("**** fnp208 unrecognized rfType= " + rfd.getRiskFactorType() );
 			  }
@@ -377,6 +532,9 @@ public class RiskObservationHandler {
 			  mdls.addAll(cltvmdls);
 		  if (scmdls != null)
 			  mdls.addAll(scmdls);
+		  List<String> trmdls  = contractModel.getAs("treasuryModels");
+		  if (trmdls != null)
+			  mdls.addAll(trmdls);
 		  
 		  List<CalloutData> observations = new ArrayList<CalloutData>();
 		  for (String mdl : mdls) {
