@@ -21,10 +21,15 @@ import java.util.Set;
  * signals redistribution. If all stressed simultaneously, signals
  * shift to fiat.
  *
- * ACTUS contract type: CLM (stablecoin position)
+ * Accepts EITHER peg rates (e.g. 0.9985) or deviation values (e.g. -0.0015).
+ * If the absolute value > 0.5 it is interpreted as a peg rate and deviation
+ * is computed as |1.0 - pegRate|. Otherwise the value is treated as a
+ * deviation directly.
+ *
+ * ACTUS contract type: PAM/CLM (stablecoin position)
  * Market Object Codes consumed:
- *   USDC_USD_DEVIATION  — primary stablecoin peg deviation
- *   ALT_USD_DEVIATION   — alternative stablecoin deviation
+ *   USDC_USD_PEG (or DEVIATION)  — primary stablecoin peg rate / deviation
+ *   USDT_USD_PEG (or DEVIATION)  — alternative stablecoin peg rate / deviation
  */
 public class PegStressModel implements BehaviorRiskModelProvider {
 
@@ -69,13 +74,25 @@ public class PegStressModel implements BehaviorRiskModelProvider {
     @Override
     public double stateAt(String id, LocalDateTime time, StateSpace states) {
 
-        double primaryDev = Math.abs(this.marketModel.stateAt(this.primaryPegDeviationMOC, time));
-        double altDev     = Math.abs(this.marketModel.stateAt(this.altPegDeviationMOC, time));
+        double primaryRaw = this.marketModel.stateAt(this.primaryPegDeviationMOC, time);
+        double altRaw     = this.marketModel.stateAt(this.altPegDeviationMOC, time);
+
+        // Auto-detect: if |value| > 0.5 it is a peg rate → compute deviation from 1.0
+        // Otherwise treat as a deviation value directly
+        double primaryDev = Math.abs(primaryRaw) > 0.5
+                ? Math.abs(1.0 - primaryRaw)
+                : Math.abs(primaryRaw);
+        double altDev = Math.abs(altRaw) > 0.5
+                ? Math.abs(1.0 - altRaw)
+                : Math.abs(altRaw);
+
         double holding = Math.abs(states.notionalPrincipal);
 
         System.out.println("**** PegStressModel: time=" + time
-                + " primaryDev=" + String.format("%.4f", primaryDev)
-                + " altDev=" + String.format("%.4f", altDev)
+                + " primaryRaw=" + String.format("%.6f", primaryRaw)
+                + " primaryDev=" + String.format("%.6f", primaryDev)
+                + " altRaw=" + String.format("%.6f", altRaw)
+                + " altDev=" + String.format("%.6f", altDev)
                 + " holding=" + String.format("%.2f", holding)
                 + " threshold=" + pegDeviationThreshold
                 + " critical=" + criticalDeviation);
