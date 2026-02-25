@@ -116,6 +116,28 @@ public class ContractModel implements ContractModelProvider{
             	map.put("collateralModels", cltvmdls);
             	// ================================================================
 
+            	// ================================================================
+            	// Parse stablecoinModels list (null-safe — field is optional)
+            	// ================================================================
+            	List<String> scmdls = (List<String>)attributes.get("stablecoinModels");
+            	System.out.println("**** fnp034: scmdls = <" + scmdls + ">");
+            	map.put("stablecoinModels", scmdls);
+
+            	// ================================================================
+            	// Parse treasuryModels list (null-safe — field is optional)
+            	// ================================================================
+            	List<String> trmdls = (List<String>)attributes.get("treasuryModels");
+            	System.out.println("**** fnp035: trmdls = <" + trmdls + ">");
+            	map.put("treasuryModels", trmdls);
+
+            	// ================================================================
+            	// Parse tariffModels list (null-safe — field is optional)
+            	// ================================================================
+            	List<String> tariffmdls = (List<String>)attributes.get("tariffModels");
+            	System.out.println("**** fnp036: tariffmdls = <" + tariffmdls + ">");
+            	map.put("tariffModels", tariffmdls);
+            	// ================================================================
+
             } catch (Exception e) {
             throw new AttributeConversionException();
             }

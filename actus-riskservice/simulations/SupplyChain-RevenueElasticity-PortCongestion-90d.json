@@ -2,12 +2,12 @@
   "info": {
     "_postman_id": "sc-re-pc-90d-001",
     "name": "SupplyChain-RevenueElasticity-PortCongestion-90d",
-    "description": "ACTUS Supply Chain Tariff: REVENUE ELASTICITY + PORT CONGESTION (Vietnam-US auto parts corridor).\n\nTWO supply chain tariff behavioral models run simultaneously:\n  1. RevenueElasticityModel (7.4) — Armington demand elasticity revenue decline\n  2. PortCongestionModel (7.6) — port dwell time extension + financial impact\n\nScenario: Vietnam-US auto parts exporter, $8M trade finance facility\n  Baseline tariff: 5% (HS Chapter 87 auto parts, MFN rate)\n  Tariff escalation: 5% → 30% (reciprocal tariff + anti-circumvention)\n  Product elasticity: 1.8 (auto parts sector, GTAP v11)\n  Pass-through: 0.70 (70% of tariff passed to buyer)\n  Base port dwell: 4 days, extends to 12 days under congestion\n  Financial impact: $15,000/day (demurrage + storage + opportunity cost)\n\nKEY DYNAMICS:\n  Days 1-10:  Tariff low, ports clear → minimal impact\n  Days 11-30: Tariff ramps → revenue declines ~38% (1.8 × 0.30 × 0.70)\n              Port congestion index spikes → dwell 4 → 12 days\n  Days 31-60: Peak stress: revenue down 38%, port delays +8 days\n              Financial impact: 8 days × $15K = $120K per shipment\n  Days 61-90: Partial tariff rollback → revenue recovers partially\n              Port congestion eases → dwell normalizes\n\nReferences:\n  - Armington (1969): substitution elasticity framework\n  - GTAP v11: auto parts sector elasticities\n  - WTO Trade Monitoring Report\n  - UNCTAD Review of Maritime Transport (port congestion data)\n  - Freightos Baltic Index (container rates)\n\nContract: PAM representing trade finance loan\n  notionalPrincipal = 8000000 ($8M trade finance facility)\n  nominalInterestRate = 0.065 (SOFR + 200bps trade finance premium)\n  tariffModels: [re_vnm01, pc_vnm01]\n\nOpen Postman Console (Ctrl+Alt+C) before running.",
+    "description": "ACTUS Supply Chain Tariff: REVENUE ELASTICITY + PORT CONGESTION (Vietnam-US auto parts corridor).\n\nTWO supply chain tariff behavioral models run simultaneously:\n  1. RevenueElasticityModel (7.4) \u2014 Armington demand elasticity revenue decline\n  2. PortCongestionModel (7.6) \u2014 port dwell time extension + financial impact\n\nScenario: Vietnam-US auto parts exporter, $8M trade finance facility\n  Baseline tariff: 5% (HS Chapter 87 auto parts, MFN rate)\n  Tariff escalation: 5% \u2192 30% (reciprocal tariff + anti-circumvention)\n  Product elasticity: 1.8 (auto parts sector, GTAP v11)\n  Pass-through: 0.70 (70% of tariff passed to buyer)\n  Base port dwell: 4 days, extends to 12 days under congestion\n  Financial impact: 0.001875/day of notional ($15K/$8M = demurrage + storage + opportunity)\n\nKEY DYNAMICS:\n  Days 1-10:  Tariff low, ports clear \u2192 minimal impact\n  Days 11-30: Tariff ramps \u2192 revenue declines ~38% (1.8 \u00d7 0.30 \u00d7 0.70)\n              Port congestion index spikes \u2192 dwell 4 \u2192 12 days\n  Days 31-60: Peak stress: revenue down 38%, port delays +8 days\n              Financial impact: 8 days \u00d7 $15K = $120K per shipment\n  Days 61-90: Partial tariff rollback \u2192 revenue recovers partially\n              Port congestion eases \u2192 dwell normalizes\n\nReferences:\n  - Armington (1969): substitution elasticity framework\n  - GTAP v11: auto parts sector elasticities\n  - WTO Trade Monitoring Report\n  - UNCTAD Review of Maritime Transport (port congestion data)\n  - Freightos Baltic Index (container rates)\n\nContract: PAM representing trade finance loan\n  notionalPrincipal = 8000000 ($8M trade finance facility)\n  nominalInterestRate = 0.065 (SOFR + 200bps trade finance premium)\n  tariffModels: [re_vnm01, pc_vnm01]\n\nOpen Postman Console (Ctrl+Alt+C) before running.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "1. Add TARIFF_INDEX (Vietnam-US auto parts tariff)",
+      "name": "1a. Add TARIFF_INDEX (Vietnam-US auto parts tariff)",
       "request": {
         "method": "POST",
         "header": [{"key": "Content-Type", "value": "application/json"}],
@@ -28,6 +28,31 @@
         "    pm.response.to.have.status(200);",
         "    console.log('\\u2705 TARIFF_IDX_03: 5% MFN \\u2192 30% peak (reciprocal+anti-circumvention) \\u2192 15% rollback');",
         "    console.log('   Vietnam-US HS87 auto parts');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "1b. Add USD_SOFR Reference Rate (for PAM rate resets)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "http://localhost:8082/addReferenceIndex",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["addReferenceIndex"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"riskFactorID\":\"SOFR_IDX_01\",\"marketObjectCode\":\"USD_SOFR\",\"base\":1.0,\"data\":[{\"time\":\"2026-03-01T00:00:00\",\"value\":0.043},{\"time\":\"2026-03-15T00:00:00\",\"value\":0.043},{\"time\":\"2026-03-31T00:00:00\",\"value\":0.042},{\"time\":\"2026-04-15T00:00:00\",\"value\":0.042},{\"time\":\"2026-04-30T00:00:00\",\"value\":0.041},{\"time\":\"2026-05-15T00:00:00\",\"value\":0.041},{\"time\":\"2026-05-31T00:00:00\",\"value\":0.040}]}",
+          "options": {"raw": {"language": "json"}}
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('USD_SOFR reference rate added', function(){",
+        "    pm.response.to.have.status(200);",
+        "    console.log('\\u2705 SOFR_IDX_01: USD_SOFR 4.3% \\u2192 4.0% (Mar-May 2026)');",
+        "    console.log('   Required for PAM rate reset: SOFR + 200bps spread');",
         "});"
       ]}}]
     },
@@ -53,7 +78,7 @@
         "    pm.response.to.have.status(200);",
         "    console.log('\\u2705 PORT_CONG_01: 4 days baseline \\u2192 12 days peak \\u2192 5 days recovery');",
         "    console.log('   Port dwell time: HCMC/Cat Lai \\u2192 LA/Long Beach');",
-        "    console.log('   Peak congestion: +8 days × $15K/day = $120K per shipment');",
+        "    console.log('   Peak congestion: +8 days \\u00d7 $15K/day = $120K per shipment');",
         "});"
       ]}}]
     },
@@ -79,7 +104,7 @@
         "    pm.response.to.have.status(200);",
         "    console.log('\\u2705 re_vnm01: RevenueElasticityModel (bi-weekly, 90 days)');",
         "    console.log('   productElasticity=1.8, passThrough=0.70, floor=40%');",
-        "    console.log('   At 30% tariff: decline = 1.8 × 0.30 × 0.70 = 37.8% revenue drop');",
+        "    console.log('   At 30% tariff: decline = 1.8 \\u00d7 0.30 \\u00d7 0.70 = 37.8% revenue drop');",
         "});"
       ]}}]
     },
@@ -96,7 +121,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\"riskFactorId\":\"pc_vnm01\",\"portCongestionIndexMOC\":\"PORT_CONGESTION_INDEX\",\"tariffIndexMOC\":\"TARIFF_INDEX_VN\",\"baseDwellDays\":4.0,\"congestionSensitivity\":0.5,\"maxDelayDays\":10.0,\"financialImpactPerDay\":15000.0,\"monitoringEventTimes\":[\"2026-03-01T00:00:00\",\"2026-03-15T00:00:00\",\"2026-03-31T00:00:00\",\"2026-04-15T00:00:00\",\"2026-04-30T00:00:00\",\"2026-05-15T00:00:00\",\"2026-05-31T00:00:00\"]}",
+          "raw": "{\"riskFactorId\":\"pc_vnm01\",\"portCongestionIndexMOC\":\"PORT_CONGESTION_INDEX\",\"tariffIndexMOC\":\"TARIFF_INDEX_VN\",\"baseDwellDays\":4.0,\"congestionSensitivity\":0.5,\"maxDelayDays\":10.0,\"financialImpactPerDay\":0.001875,\"monitoringEventTimes\":[\"2026-03-01T00:00:00\",\"2026-03-15T00:00:00\",\"2026-03-31T00:00:00\",\"2026-04-15T00:00:00\",\"2026-04-30T00:00:00\",\"2026-05-15T00:00:00\",\"2026-05-31T00:00:00\"]}",
           "options": {"raw": {"language": "json"}}
         }
       },
@@ -104,8 +129,8 @@
         "pm.test('PortCongestionModel added', function(){",
         "    pm.response.to.have.status(200);",
         "    console.log('\\u2705 pc_vnm01: PortCongestionModel (bi-weekly, 90 days)');",
-        "    console.log('   baseDwell=4 days, maxDelay=10 days, $15K/day impact');",
-        "    console.log('   At peak: delay=min(12-4,10)=8 days, cost=$120K');",
+        "    console.log('   baseDwell=4 days, maxDelay=10 days, 0.001875/day ($15K/$8M notional)');",
+        "    console.log('   At peak: delay=min(12-4,10)=8 days, impact=8\\u00d70.001875=0.015 (1.5% of notional)');",
         "});"
       ]}}]
     },
@@ -122,14 +147,16 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\"scenarioID\":\"tariff_rev_port_scn01\",\"riskFactorDescriptors\":[{\"riskFactorID\":\"TARIFF_IDX_03\",\"riskFactorType\":\"ReferenceIndex\"},{\"riskFactorID\":\"PORT_CONG_01\",\"riskFactorType\":\"ReferenceIndex\"},{\"riskFactorID\":\"re_vnm01\",\"riskFactorType\":\"RevenueElasticityModel\"},{\"riskFactorID\":\"pc_vnm01\",\"riskFactorType\":\"PortCongestionModel\"}]}",
+          "raw": "{\"scenarioID\":\"tariff_rev_port_scn01\",\"riskFactorDescriptors\":[{\"riskFactorID\":\"TARIFF_IDX_03\",\"riskFactorType\":\"ReferenceIndex\"},{\"riskFactorID\":\"SOFR_IDX_01\",\"riskFactorType\":\"ReferenceIndex\"},{\"riskFactorID\":\"PORT_CONG_01\",\"riskFactorType\":\"ReferenceIndex\"},{\"riskFactorID\":\"re_vnm01\",\"riskFactorType\":\"RevenueElasticityModel\"},{\"riskFactorID\":\"pc_vnm01\",\"riskFactorType\":\"PortCongestionModel\"}]}",
           "options": {"raw": {"language": "json"}}
         }
       },
       "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
         "pm.test('Revenue-congestion scenario created', function(){",
         "    pm.response.to.have.status(200);",
-        "    console.log('\\u2705 tariff_rev_port_scn01: 2 indexes + 2 tariff behavioral models');",
+        "    console.log('\\u2705 tariff_rev_port_scn01: 3 indexes + 2 tariff behavioral models');",
+        "    console.log('   Indexes: TARIFF_INDEX_VN, USD_SOFR, PORT_CONGESTION_INDEX');",
+        "    console.log('   Models:  re_vnm01 (revenue elasticity), pc_vnm01 (port congestion)');",
         "});"
       ]}}]
     },
@@ -172,8 +199,8 @@
         "    pm.response.to.have.status(200);",
         "    var d = pm.response.json();",
         "    pm.expect(d.riskFactorId).to.eql('pc_vnm01');",
-        "    pm.expect(d.financialImpactPerDay).to.eql(15000.0);",
-        "    console.log('\\u2705 pc_vnm01 confirmed: baseDwell=' + d.baseDwellDays + ', $' + d.financialImpactPerDay + '/day');",
+        "    pm.expect(d.financialImpactPerDay).to.eql(0.001875);",
+        "    console.log('\\u2705 pc_vnm01 confirmed: baseDwell=' + d.baseDwellDays + ', impact/day=' + d.financialImpactPerDay + ' (fraction of notional)');",
         "});"
       ]}}]
     },
@@ -205,15 +232,20 @@
         "    console.log('  Exporter: $8M trade finance, auto parts HS87');",
         "    console.log('  Tariff: 5% MFN \\u2192 30% peak \\u2192 15% rollback');",
         "    console.log('  Elasticity: 1.8, pass-through: 70%');",
-        "    console.log('  Port dwell: 4 \\u2192 12 days, $15K/day');",
+        "    console.log('  Port dwell: 4 \\u2192 12 days, 0.001875/day of notional');",
         "    console.log('\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550');",
         "    console.log('Total events: ' + events.length);",
         "    var counts = {};",
         "    events.forEach(function(e){counts[e.type]=(counts[e.type]||0)+1;});",
         "    Object.keys(counts).forEach(function(k){console.log('  '+k+': '+counts[k]);});",
-        "    var mrds = events.filter(function(e){return e.type==='MRD';});",
-        "    if(mrds.length>0){console.log(''); console.log('BEHAVIORAL CALLOUTS:');",
-        "        mrds.forEach(function(m){console.log('  '+m.time+' payoff=$'+m.payoff.toFixed(2));});}",
+        "    console.log('');",
+        "    console.log('ALL EVENTS:');",
+        "    events.forEach(function(e){",
+        "        console.log('  '+e.time+' '+e.type+' payoff=$'+e.payoff.toFixed(2)+' nominalValue='+e.nominalValue.toFixed(2));",
+        "    });",
+        "    var pps = events.filter(function(e){return e.type==='PP';});",
+        "    if(pps.length>0){console.log(''); console.log('BEHAVIORAL CALLOUTS (PP events from tariff models):');",
+        "        pps.forEach(function(m){console.log('  '+m.time+' payoff=$'+m.payoff.toFixed(2));});}",
         "    var ips = events.filter(function(e){return e.type==='IP';});",
         "    if(ips.length>0){console.log(''); console.log('INTEREST PAYMENTS:');",
         "        ips.forEach(function(m){console.log('  '+m.time+' IP=$'+m.payoff.toFixed(2));});}",

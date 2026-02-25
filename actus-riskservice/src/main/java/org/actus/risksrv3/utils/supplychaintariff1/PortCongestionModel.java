@@ -81,6 +81,10 @@ public class PortCongestionModel implements BehaviorRiskModelProvider {
     /**
      * Compute financial impact of port congestion delays.
      *
+     * PORT_CONGESTION_INDEX contains raw dwell days (e.g. 4.0 baseline → 12.0 peak).
+     * delayDays = congestionIndex - baseDwellDays + tariff-induced additional delay
+     * financialImpactPerDay is a fraction of notional per day (e.g. 0.001875 = $15K/$8M)
+     *
      * @return financial impact fraction per notional (0.0 = no delay)
      */
     @Override
@@ -89,19 +93,22 @@ public class PortCongestionModel implements BehaviorRiskModelProvider {
         double congestionIndex = this.marketModel.stateAt(this.portCongestionIndexMOC, time);
         double currentTariff = this.marketModel.stateAt(this.tariffIndexMOC, time);
 
-        // Tariff-induced congestion contribution
-        double tariffContribution = currentTariff * this.congestionSensitivity;
+        // Congestion index IS the current dwell days (raw, not normalized)
+        // Extra delay = current dwell - baseline dwell
+        double congestionDelay = congestionIndex - this.baseDwellDays;
 
-        // Total dwell time under stress
-        double totalDwell = this.baseDwellDays * (1.0 + congestionIndex + tariffContribution);
+        // Tariff-induced additional congestion (days)
+        double tariffDelay = this.baseDwellDays * currentTariff * this.congestionSensitivity;
 
-        // Extra delay days beyond baseline
-        double delayDays = totalDwell - this.baseDwellDays;
+        // Total extra delay days beyond baseline
+        double delayDays = congestionDelay + tariffDelay;
         delayDays = Math.max(0.0, delayDays);
         delayDays = Math.min(delayDays, this.maxDelayDays);
 
-        // Financial impact: cost per day of delay × number of delay days
+        // Financial impact: fractional cost per day × delay days
         double financialImpact = delayDays * this.financialImpactPerDay;
+
+        double totalDwell = this.baseDwellDays + delayDays;
 
         System.out.println("**** PortCongestionModel: time=" + time
                 + " congestionIdx=" + String.format("%.3f", congestionIndex)
