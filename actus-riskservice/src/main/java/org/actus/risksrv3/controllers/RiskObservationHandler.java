@@ -51,6 +51,15 @@ import org.actus.risksrv3.models.supplychaintariff1.RevenueElasticityModelData;
 import org.actus.risksrv3.models.supplychaintariff1.FXTariffCorrelationModelData;
 import org.actus.risksrv3.models.supplychaintariff1.PortCongestionModelData;
 // ====== END SUPPLY CHAIN TARIFF MODEL DATA IMPORTS ======
+// ====== DEFI LIQUIDATION MODEL DATA IMPORTS ======
+import org.actus.risksrv3.models.defiliquidation1.HealthFactorModelData;
+import org.actus.risksrv3.models.defiliquidation1.CollateralVelocityModelData;
+import org.actus.risksrv3.models.defiliquidation1.CollateralRebalancingModelData;
+import org.actus.risksrv3.models.defiliquidation1.CorrelationRiskModelData;
+import org.actus.risksrv3.models.defiliquidation1.CascadeProbabilityModelData;
+import org.actus.risksrv3.models.defiliquidation1.GasOptimizationModelData;
+import org.actus.risksrv3.models.defiliquidation1.InvoiceMaturityModelData;
+// ====== END DEFI LIQUIDATION MODEL DATA IMPORTS ======
 import org.actus.risksrv3.repository.ReferenceIndexStore;
 import org.actus.risksrv3.repository.ScenarioStore;
 import org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -84,6 +93,15 @@ import org.actus.risksrv3.repository.supplychaintariff1.RevenueElasticityModelSt
 import org.actus.risksrv3.repository.supplychaintariff1.FXTariffCorrelationModelStore;
 import org.actus.risksrv3.repository.supplychaintariff1.PortCongestionModelStore;
 // ====== END SUPPLY CHAIN TARIFF STORE IMPORTS ======
+// ====== DEFI LIQUIDATION STORE IMPORTS ======
+import org.actus.risksrv3.repository.defiliquidation1.HealthFactorModelStore;
+import org.actus.risksrv3.repository.defiliquidation1.CollateralVelocityModelStore;
+import org.actus.risksrv3.repository.defiliquidation1.CollateralRebalancingModelStore;
+import org.actus.risksrv3.repository.defiliquidation1.CorrelationRiskModelStore;
+import org.actus.risksrv3.repository.defiliquidation1.CascadeProbabilityModelStore;
+import org.actus.risksrv3.repository.defiliquidation1.GasOptimizationModelStore;
+import org.actus.risksrv3.repository.defiliquidation1.InvoiceMaturityModelStore;
+// ====== END DEFI LIQUIDATION STORE IMPORTS ======
 import org.actus.risksrv3.utils.MultiBehaviorRiskModel;
 import org.actus.risksrv3.utils.MultiMarketRiskModel;
 import org.actus.risksrv3.utils.TimeSeriesModel;
@@ -118,6 +136,15 @@ import org.actus.risksrv3.utils.supplychaintariff1.RevenueElasticityModel;
 import org.actus.risksrv3.utils.supplychaintariff1.FXTariffCorrelationModel;
 import org.actus.risksrv3.utils.supplychaintariff1.PortCongestionModel;
 // ====== END SUPPLY CHAIN TARIFF MODEL UTIL IMPORTS ======
+// ====== DEFI LIQUIDATION MODEL UTIL IMPORTS ======
+import org.actus.risksrv3.utils.defiliquidation1.HealthFactorModel;
+import org.actus.risksrv3.utils.defiliquidation1.CollateralVelocityModel;
+import org.actus.risksrv3.utils.defiliquidation1.CollateralRebalancingModel;
+import org.actus.risksrv3.utils.defiliquidation1.CorrelationRiskModel;
+import org.actus.risksrv3.utils.defiliquidation1.CascadeProbabilityModel;
+import org.actus.risksrv3.utils.defiliquidation1.GasOptimizationModel;
+import org.actus.risksrv3.utils.defiliquidation1.InvoiceMaturityModel;
+// ====== END DEFI LIQUIDATION MODEL UTIL IMPORTS ======
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -191,6 +218,22 @@ public class RiskObservationHandler {
 	@Autowired
 	private PortCongestionModelStore portCongestionModelStore;
 	// ====== END SUPPLY CHAIN TARIFF MODEL STORES ======
+	// ====== DEFI LIQUIDATION MODEL STORES ======
+	@Autowired
+	private HealthFactorModelStore healthFactorModelStore;
+	@Autowired
+	private CollateralVelocityModelStore collateralVelocityModelStore;
+	@Autowired
+	private CollateralRebalancingModelStore collateralRebalancingModelStore;
+	@Autowired
+	private CorrelationRiskModelStore correlationRiskModelStore;
+	@Autowired
+	private CascadeProbabilityModelStore cascadeProbabilityModelStore;
+	@Autowired
+	private GasOptimizationModelStore gasOptimizationModelStore;
+	@Autowired
+	private InvoiceMaturityModelStore invoiceMaturityModelStore;
+	// ====== END DEFI LIQUIDATION MODEL STORES ======
 
 // local state attributes and objects 
 // these are the state variables used for processing simulation requests 
@@ -618,6 +661,101 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  // ================================================================
+			  // DEFI LIQUIDATION BEHAVIORAL MODELS (7 models)
+			  // CHRONOS-SHIELD liquidation risk framework
+			  // ================================================================
+			  else if (rfd.getRiskFactorType().equals("HealthFactorModel")) {
+				  Optional<HealthFactorModelData> odata =
+						  this.healthFactorModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp250 found HealthFactorModel ; rfxid = " + rfxid);
+					  HealthFactorModel mdl =
+							  new HealthFactorModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.HealthFactorModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("CollateralVelocityModel")) {
+				  Optional<CollateralVelocityModelData> odata =
+						  this.collateralVelocityModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp251 found CollateralVelocityModel ; rfxid = " + rfxid);
+					  CollateralVelocityModel mdl =
+							  new CollateralVelocityModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.CollateralVelocityModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("CollateralRebalancingModel")) {
+				  Optional<CollateralRebalancingModelData> odata =
+						  this.collateralRebalancingModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp252 found CollateralRebalancingModel ; rfxid = " + rfxid);
+					  CollateralRebalancingModel mdl =
+							  new CollateralRebalancingModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.CollateralRebalancingModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("CorrelationRiskModel")) {
+				  Optional<CorrelationRiskModelData> odata =
+						  this.correlationRiskModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp253 found CorrelationRiskModel ; rfxid = " + rfxid);
+					  CorrelationRiskModel mdl =
+							  new CorrelationRiskModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.CorrelationRiskModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("CascadeProbabilityModel")) {
+				  Optional<CascadeProbabilityModelData> odata =
+						  this.cascadeProbabilityModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp254 found CascadeProbabilityModel ; rfxid = " + rfxid);
+					  CascadeProbabilityModel mdl =
+							  new CascadeProbabilityModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.CascadeProbabilityModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("GasOptimizationModel")) {
+				  Optional<GasOptimizationModelData> odata =
+						  this.gasOptimizationModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp255 found GasOptimizationModel ; rfxid = " + rfxid);
+					  GasOptimizationModel mdl =
+							  new GasOptimizationModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.GasOptimizationModelNotFoundException(rfxid);
+				  }
+			  }
+			  else if (rfd.getRiskFactorType().equals("InvoiceMaturityModel")) {
+				  Optional<InvoiceMaturityModelData> odata =
+						  this.invoiceMaturityModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp256 found InvoiceMaturityModel ; rfxid = " + rfxid);
+					  InvoiceMaturityModel mdl =
+							  new InvoiceMaturityModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  }
+				  else {
+					  throw new org.actus.risksrv3.controllers.defiliquidation1.InvoiceMaturityModelNotFoundException(rfxid);
+				  }
+			  }
+			  // ================================================================
 			  else {
 				  System.out.println("**** fnp208 unrecognized rfType= " + rfd.getRiskFactorType() );
 			  }
@@ -658,6 +796,9 @@ public class RiskObservationHandler {
 		  List<String> tariffmdls = contractModel.getAs("tariffModels");
 		  if (tariffmdls != null)
 			  mdls.addAll(tariffmdls);
+		  List<String> defimdls = contractModel.getAs("defiLiquidationModels");
+		  if (defimdls != null)
+			  mdls.addAll(defimdls);
 		  
 		  List<CalloutData> observations = new ArrayList<CalloutData>();
 		  for (String mdl : mdls) {

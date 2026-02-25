@@ -32,6 +32,15 @@ import  org.actus.risksrv3.models.supplychaintariff1.RevenueElasticityModelData;
 import  org.actus.risksrv3.models.supplychaintariff1.FXTariffCorrelationModelData;
 import  org.actus.risksrv3.models.supplychaintariff1.PortCongestionModelData;
 // ====== END SUPPLY CHAIN TARIFF MODEL IMPORTS ======
+// ====== DEFI LIQUIDATION MODEL IMPORTS ======
+import  org.actus.risksrv3.models.defiliquidation1.HealthFactorModelData;
+import  org.actus.risksrv3.models.defiliquidation1.CollateralVelocityModelData;
+import  org.actus.risksrv3.models.defiliquidation1.CollateralRebalancingModelData;
+import  org.actus.risksrv3.models.defiliquidation1.CorrelationRiskModelData;
+import  org.actus.risksrv3.models.defiliquidation1.CascadeProbabilityModelData;
+import  org.actus.risksrv3.models.defiliquidation1.GasOptimizationModelData;
+import  org.actus.risksrv3.models.defiliquidation1.InvoiceMaturityModelData;
+// ====== END DEFI LIQUIDATION MODEL IMPORTS ======
 import  org.actus.risksrv3.repository.ReferenceIndexStore;
 import  org.actus.risksrv3.repository.ScenarioStore;
 import  org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -65,6 +74,15 @@ import  org.actus.risksrv3.repository.supplychaintariff1.RevenueElasticityModelS
 import  org.actus.risksrv3.repository.supplychaintariff1.FXTariffCorrelationModelStore;
 import  org.actus.risksrv3.repository.supplychaintariff1.PortCongestionModelStore;
 // ====== END SUPPLY CHAIN TARIFF STORE IMPORTS ======
+// ====== DEFI LIQUIDATION STORE IMPORTS ======
+import  org.actus.risksrv3.repository.defiliquidation1.HealthFactorModelStore;
+import  org.actus.risksrv3.repository.defiliquidation1.CollateralVelocityModelStore;
+import  org.actus.risksrv3.repository.defiliquidation1.CollateralRebalancingModelStore;
+import  org.actus.risksrv3.repository.defiliquidation1.CorrelationRiskModelStore;
+import  org.actus.risksrv3.repository.defiliquidation1.CascadeProbabilityModelStore;
+import  org.actus.risksrv3.repository.defiliquidation1.GasOptimizationModelStore;
+import  org.actus.risksrv3.repository.defiliquidation1.InvoiceMaturityModelStore;
+// ====== END DEFI LIQUIDATION STORE IMPORTS ======
 import  org.springframework.beans.factory.annotation.Autowired;
 import  org.springframework.beans.factory.annotation.Value;
 import  org.springframework.web.bind.annotation.*;
@@ -136,6 +154,22 @@ public class RiskDataManager {
 	@Autowired
 	private PortCongestionModelStore portCongestionModelStore;
 	// ====== END SUPPLY CHAIN TARIFF MODEL STORES ======
+	// ====== DEFI LIQUIDATION MODEL STORES ======
+	@Autowired
+	private HealthFactorModelStore healthFactorModelStore;
+	@Autowired
+	private CollateralVelocityModelStore collateralVelocityModelStore;
+	@Autowired
+	private CollateralRebalancingModelStore collateralRebalancingModelStore;
+	@Autowired
+	private CorrelationRiskModelStore correlationRiskModelStore;
+	@Autowired
+	private CascadeProbabilityModelStore cascadeProbabilityModelStore;
+	@Autowired
+	private GasOptimizationModelStore gasOptimizationModelStore;
+	@Autowired
+	private InvoiceMaturityModelStore invoiceMaturityModelStore;
+	// ====== END DEFI LIQUIDATION MODEL STORES ======
 	
 	private
 	@Value("${spring.data.mongodb.host}")
@@ -764,5 +798,167 @@ public class RiskDataManager {
     @GetMapping("/findAllPortCongestionModels")
     public List<PortCongestionModelData> getPortCongestionModels() {
         return portCongestionModelStore.findAll();
+    }
+
+    // =========================================================================
+    // DEFI LIQUIDATION BEHAVIORAL MODEL CRUD ENDPOINTS (7 models × 4 = 28)
+    // riskFactorType values in scenario descriptors:
+    //   "HealthFactorModel", "CollateralVelocityModel",
+    //   "CollateralRebalancingModel", "CorrelationRiskModel",
+    //   "CascadeProbabilityModel", "GasOptimizationModel",
+    //   "InvoiceMaturityModel"
+    //
+    // CHRONOS-SHIELD DeFi liquidation behavioral risk models.
+    // References:
+    //   Lehar & Parlour (2022) BIS WP 1062,
+    //   Heimbach & Huang (2024) BIS WP 1171,
+    //   Sadeghi (2025) gas/liquidation dynamics.
+    // =========================================================================
+
+    // --- 8.1 HealthFactorModel ---
+    @PostMapping("/addHealthFactorModel")
+    public String saveHealthFactorModelData(
+            @RequestBody HealthFactorModelData data) {
+        healthFactorModelStore.save(data);
+        return "HealthFactorModel added successfully\n";
+    }
+    @DeleteMapping("/deleteHealthFactorModel/{id}")
+    public String deleteHealthFactorModel(@PathVariable String id) {
+        healthFactorModelStore.deleteById(id);
+        return "HealthFactorModel deleted successfully\n";
+    }
+    @GetMapping("/findHealthFactorModel/{id}")
+    public Optional<HealthFactorModelData> findHealthFactorModelData(@PathVariable String id) {
+        return healthFactorModelStore.findById(id);
+    }
+    @GetMapping("/findAllHealthFactorModels")
+    public List<HealthFactorModelData> getHealthFactorModels() {
+        return healthFactorModelStore.findAll();
+    }
+
+    // --- 8.2 CollateralVelocityModel ---
+    @PostMapping("/addCollateralVelocityModel")
+    public String saveCollateralVelocityModelData(
+            @RequestBody CollateralVelocityModelData data) {
+        collateralVelocityModelStore.save(data);
+        return "CollateralVelocityModel added successfully\n";
+    }
+    @DeleteMapping("/deleteCollateralVelocityModel/{id}")
+    public String deleteCollateralVelocityModel(@PathVariable String id) {
+        collateralVelocityModelStore.deleteById(id);
+        return "CollateralVelocityModel deleted successfully\n";
+    }
+    @GetMapping("/findCollateralVelocityModel/{id}")
+    public Optional<CollateralVelocityModelData> findCollateralVelocityModelData(@PathVariable String id) {
+        return collateralVelocityModelStore.findById(id);
+    }
+    @GetMapping("/findAllCollateralVelocityModels")
+    public List<CollateralVelocityModelData> getCollateralVelocityModels() {
+        return collateralVelocityModelStore.findAll();
+    }
+
+    // --- 8.3 CollateralRebalancingModel ---
+    @PostMapping("/addCollateralRebalancingModel")
+    public String saveCollateralRebalancingModelData(
+            @RequestBody CollateralRebalancingModelData data) {
+        collateralRebalancingModelStore.save(data);
+        return "CollateralRebalancingModel added successfully\n";
+    }
+    @DeleteMapping("/deleteCollateralRebalancingModel/{id}")
+    public String deleteCollateralRebalancingModel(@PathVariable String id) {
+        collateralRebalancingModelStore.deleteById(id);
+        return "CollateralRebalancingModel deleted successfully\n";
+    }
+    @GetMapping("/findCollateralRebalancingModel/{id}")
+    public Optional<CollateralRebalancingModelData> findCollateralRebalancingModelData(@PathVariable String id) {
+        return collateralRebalancingModelStore.findById(id);
+    }
+    @GetMapping("/findAllCollateralRebalancingModels")
+    public List<CollateralRebalancingModelData> getCollateralRebalancingModels() {
+        return collateralRebalancingModelStore.findAll();
+    }
+
+    // --- 8.4 CorrelationRiskModel ---
+    @PostMapping("/addCorrelationRiskModel")
+    public String saveCorrelationRiskModelData(
+            @RequestBody CorrelationRiskModelData data) {
+        correlationRiskModelStore.save(data);
+        return "CorrelationRiskModel added successfully\n";
+    }
+    @DeleteMapping("/deleteCorrelationRiskModel/{id}")
+    public String deleteCorrelationRiskModel(@PathVariable String id) {
+        correlationRiskModelStore.deleteById(id);
+        return "CorrelationRiskModel deleted successfully\n";
+    }
+    @GetMapping("/findCorrelationRiskModel/{id}")
+    public Optional<CorrelationRiskModelData> findCorrelationRiskModelData(@PathVariable String id) {
+        return correlationRiskModelStore.findById(id);
+    }
+    @GetMapping("/findAllCorrelationRiskModels")
+    public List<CorrelationRiskModelData> getCorrelationRiskModels() {
+        return correlationRiskModelStore.findAll();
+    }
+
+    // --- 8.5 CascadeProbabilityModel ---
+    @PostMapping("/addCascadeProbabilityModel")
+    public String saveCascadeProbabilityModelData(
+            @RequestBody CascadeProbabilityModelData data) {
+        cascadeProbabilityModelStore.save(data);
+        return "CascadeProbabilityModel added successfully\n";
+    }
+    @DeleteMapping("/deleteCascadeProbabilityModel/{id}")
+    public String deleteCascadeProbabilityModel(@PathVariable String id) {
+        cascadeProbabilityModelStore.deleteById(id);
+        return "CascadeProbabilityModel deleted successfully\n";
+    }
+    @GetMapping("/findCascadeProbabilityModel/{id}")
+    public Optional<CascadeProbabilityModelData> findCascadeProbabilityModelData(@PathVariable String id) {
+        return cascadeProbabilityModelStore.findById(id);
+    }
+    @GetMapping("/findAllCascadeProbabilityModels")
+    public List<CascadeProbabilityModelData> getCascadeProbabilityModels() {
+        return cascadeProbabilityModelStore.findAll();
+    }
+
+    // --- 8.6 GasOptimizationModel ---
+    @PostMapping("/addGasOptimizationModel")
+    public String saveGasOptimizationModelData(
+            @RequestBody GasOptimizationModelData data) {
+        gasOptimizationModelStore.save(data);
+        return "GasOptimizationModel added successfully\n";
+    }
+    @DeleteMapping("/deleteGasOptimizationModel/{id}")
+    public String deleteGasOptimizationModel(@PathVariable String id) {
+        gasOptimizationModelStore.deleteById(id);
+        return "GasOptimizationModel deleted successfully\n";
+    }
+    @GetMapping("/findGasOptimizationModel/{id}")
+    public Optional<GasOptimizationModelData> findGasOptimizationModelData(@PathVariable String id) {
+        return gasOptimizationModelStore.findById(id);
+    }
+    @GetMapping("/findAllGasOptimizationModels")
+    public List<GasOptimizationModelData> getGasOptimizationModels() {
+        return gasOptimizationModelStore.findAll();
+    }
+
+    // --- 8.7 InvoiceMaturityModel ---
+    @PostMapping("/addInvoiceMaturityModel")
+    public String saveInvoiceMaturityModelData(
+            @RequestBody InvoiceMaturityModelData data) {
+        invoiceMaturityModelStore.save(data);
+        return "InvoiceMaturityModel added successfully\n";
+    }
+    @DeleteMapping("/deleteInvoiceMaturityModel/{id}")
+    public String deleteInvoiceMaturityModel(@PathVariable String id) {
+        invoiceMaturityModelStore.deleteById(id);
+        return "InvoiceMaturityModel deleted successfully\n";
+    }
+    @GetMapping("/findInvoiceMaturityModel/{id}")
+    public Optional<InvoiceMaturityModelData> findInvoiceMaturityModelData(@PathVariable String id) {
+        return invoiceMaturityModelStore.findById(id);
+    }
+    @GetMapping("/findAllInvoiceMaturityModels")
+    public List<InvoiceMaturityModelData> getInvoiceMaturityModels() {
+        return invoiceMaturityModelStore.findAll();
     }
 }
