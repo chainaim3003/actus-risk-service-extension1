@@ -276,16 +276,16 @@ public class RiskFactor20Controller {
 	    	ArrayList<ContractEvent> calloutEvents = new ArrayList<ContractEvent>();
 	    	for (CalloutData calloutData : ppcallouts ) {
 	    		if (calloutData.getCalloutType().equals("MRD"))
-	    			// set up a Prepayment behavior call out event for this model at this time 
-	    			calloutEvents.add(EventFactory.createEvent(
-	    	    		LocalDateTime.parse(calloutData.getTime()),
-	    	    		EventType.PP,
-	    	    		model.getAs("currency"),
-	    	    		new POF_PP_rf2(calloutData.getModelID()),
-	    	    		new STF_PP_rf2(calloutData.getModelID()),
-	    	    		model.getAs("businessDayConvention"),
-	    	  	        model.getAs("contractID")
-	    	    		));   
+	    		 // set up a Prepayment behavior call out event for this model at this time 
+	    		 calloutEvents.add(EventFactory.createEvent(
+	    		     LocalDateTime.parse(calloutData.getTime()),
+	    		     EventType.PP,
+	    		     model.getAs("currency"),
+	    		     new POF_PP_rf2(calloutData.getModelID()),
+	    		     new STF_PP_rf2(calloutData.getModelID()),
+	    		     model.getAs("businessDayConvention"),
+	    		          model.getAs("contractID")
+	    		     ));   
 	    		else if (calloutData.getCalloutType().equals("AFD")) {
 		    		// set up an Absolute Funds-checked Delta callout event for this model at this time 
 		    	    calloutEvents.add(EventFactory.createEvent(

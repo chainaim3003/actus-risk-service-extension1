@@ -48,6 +48,14 @@ public class EarlySettlementModel implements BehaviorRiskModelProvider {
     private final MultiMarketRiskModel marketModel;
     private boolean settled = false;
 
+    // Dual-call tracking: ACTUS engine calls stateAt twice per timestamp
+    //   1st call (POF_PP_rf2): needs discountedFraction → payoff = fraction × notional
+    //   2nd call (STF_PP_rf2): needs 1.0 → notional -= 1.0 × notional = 0 (full cancellation)
+    // For non-settlement: both calls return 0.0 (no payoff, no notional change)
+    private LocalDateTime lastCalledTime = null;
+    private int callCountAtTime = 0;
+    private double settlementFraction = 0.0;
+
     public EarlySettlementModel(String riskFactorId,
                                 EarlySettlementModelData data,
                                 MultiMarketRiskModel marketModel) {
@@ -88,6 +96,25 @@ public class EarlySettlementModel implements BehaviorRiskModelProvider {
 
     @Override
     public double stateAt(String id, LocalDateTime time, StateSpace states) {
+        // Track call count: ACTUS engine calls stateAt twice per PP event at same timestamp
+        //   Call 1 (from POF_PP_rf2): we return discountedFraction for payoff calculation
+        //   Call 2 (from STF_PP_rf2): we return 1.0 so notional -= 1.0 × notional = 0
+        if (lastCalledTime != null && lastCalledTime.equals(time)) {
+            callCountAtTime++;
+        } else {
+            lastCalledTime = time;
+            callCountAtTime = 1;
+            settlementFraction = 0.0;
+        }
+
+        // 2nd call at same timestamp: STF needs the full-cancellation signal
+        if (callCountAtTime == 2) {
+            System.out.println("**** EarlySettlementModel: STF call time=" + time
+                    + " returning=" + (settlementFraction > 0.0 ? "1.0 (full cancellation)" : "0.0"));
+            return (settlementFraction > 0.0) ? 1.0 : 0.0;
+        }
+
+        // 1st call: evaluate settlement decision (POF path)
         if (settled || states.notionalPrincipal <= 0.0) return 0.0;
         if (time.isAfter(dueDate)) return 0.0;
 
@@ -115,16 +142,22 @@ public class EarlySettlementModel implements BehaviorRiskModelProvider {
             }
         }
 
+        // Settlement triggered!
         settled = true;
+        double discountedFraction = 1.0 - discount;
+        settlementFraction = discountedFraction;  // cache for STF call
         double savings = notionalAmount * discount;
-        double netPayment = notionalAmount - savings;
+        double netPayment = notionalAmount * discountedFraction;
         System.out.println("**** EarlySettlementModel: SETTLEMENT at time=" + time
                 + " function=" + discountFunctionType
                 + " discount=" + String.format("%.4f%%", discount * 100)
                 + " savings=$" + String.format("%.2f", savings)
                 + " netPayment=$" + String.format("%.2f", netPayment)
+                + " discountedFraction=" + String.format("%.6f", discountedFraction)
                 + " APR=" + String.format("%.2f%%", apr * 100));
-        return 1.0;
+
+        // POF_PP_rf2 computes: payoff = discountedFraction × notionalPrincipal
+        return discountedFraction;
     }
 
     private double computeDiscount(LocalDateTime time) {
