@@ -50,6 +50,27 @@ public class AllocationDriftModelData {
     private double minAllocation;
     private List<String> monitoringEventTimes;
 
+    // ================================================================
+    // CLM/UMP/PAM support: when BTC is modeled as a debt instrument
+    // (e.g. CLM for yield-producing lending), notionalPrincipal is in
+    // USD (e.g. $2,000,000), NOT in BTC units (e.g. 40). The model
+    // needs to know the actual BTC quantity separately.
+    //
+    // positionQuantity: actual asset units (e.g. 40 BTC)
+    //   - When > 0: assetValue = positionQuantity × spotPrice,
+    //                scaled by (current notionalPrincipal / initialNotionalPrincipal)
+    //                to reflect PP event reductions
+    //   - When 0 or null: legacy STK/COM mode —
+    //                assetValue = abs(notionalPrincipal) × spotPrice
+    //                (notionalPrincipal IS the quantity)
+    //
+    // initialNotionalPrincipal: the starting notionalPrincipal from the
+    //   contract JSON ($2,000,000 for CLM, 40 for STK). Used to compute
+    //   the reduction factor after PP events.
+    // ================================================================
+    private double positionQuantity;            // e.g. 40.0 (BTC units)
+    private double initialNotionalPrincipal;    // e.g. 2000000.0 (CLM) or 40.0 (STK)
+
     public AllocationDriftModelData() {
     }
 
@@ -75,4 +96,10 @@ public class AllocationDriftModelData {
 
     public List<String> getMonitoringEventTimes() { return monitoringEventTimes; }
     public void setMonitoringEventTimes(List<String> monitoringEventTimes) { this.monitoringEventTimes = monitoringEventTimes; }
+
+    public double getPositionQuantity() { return positionQuantity; }
+    public void setPositionQuantity(double positionQuantity) { this.positionQuantity = positionQuantity; }
+
+    public double getInitialNotionalPrincipal() { return initialNotionalPrincipal; }
+    public void setInitialNotionalPrincipal(double initialNotionalPrincipal) { this.initialNotionalPrincipal = initialNotionalPrincipal; }
 }

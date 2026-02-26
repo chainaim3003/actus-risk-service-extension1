@@ -47,7 +47,13 @@ import java.util.Set;
  *   20% digital ($2M BTC/ETH)
  *   Per-asset targets configured independently
  *
- * ACTUS contract type: STK (equity-like digital asset position)
+ * ACTUS contract types supported:
+ *   STK/COM  — notionalPrincipal IS the quantity (legacy mode)
+ *   CLM/UMP/PAM — notionalPrincipal is in USD; positionQuantity provides
+ *                 the actual asset units (e.g. 40 BTC). Reduction factor
+ *                 from PP events is computed as:
+ *                   currentNotional / initialNotionalPrincipal
+ *
  * Market Object Codes consumed:
  *   [spotPriceMOC]           — e.g. BTC_USD_SPOT or ETH_USD_SPOT
  *   PORTFOLIO_TOTAL_VALUE    — total portfolio NAV
@@ -65,17 +71,23 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
     private final List<String> monitoringEventTimes;
     private final MultiMarketRiskModel marketModel;
 
+    // CLM/UMP/PAM support fields
+    private final double positionQuantity;           // 0 = legacy STK mode
+    private final double initialNotionalPrincipal;   // 0 = legacy STK mode
+
     public AllocationDriftModel(String riskFactorId,
                                 AllocationDriftModelData data,
                                 MultiMarketRiskModel marketModel) {
-        this.riskFactorId           = riskFactorId;
-        this.spotPriceMOC           = data.getSpotPriceMOC();
-        this.portfolioTotalValueMOC = data.getPortfolioTotalValueMOC();
-        this.targetAllocation       = data.getTargetAllocation();
-        this.maxAllocation          = data.getMaxAllocation();
-        this.minAllocation          = data.getMinAllocation();
-        this.monitoringEventTimes   = data.getMonitoringEventTimes();
-        this.marketModel            = marketModel;
+        this.riskFactorId              = riskFactorId;
+        this.spotPriceMOC              = data.getSpotPriceMOC();
+        this.portfolioTotalValueMOC    = data.getPortfolioTotalValueMOC();
+        this.targetAllocation          = data.getTargetAllocation();
+        this.maxAllocation             = data.getMaxAllocation();
+        this.minAllocation             = data.getMinAllocation();
+        this.monitoringEventTimes      = data.getMonitoringEventTimes();
+        this.marketModel               = marketModel;
+        this.positionQuantity          = data.getPositionQuantity();
+        this.initialNotionalPrincipal  = data.getInitialNotionalPrincipal();
     }
 
     @Override
@@ -99,7 +111,34 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
 
         double spotPrice = this.marketModel.stateAt(this.spotPriceMOC, time);
         double portfolioTotal = this.marketModel.stateAt(this.portfolioTotalValueMOC, time);
-        double quantity = Math.abs(states.notionalPrincipal);
+
+        // ================================================================
+        // Compute effective quantity of the digital asset
+        //
+        // Legacy STK/COM mode (positionQuantity == 0):
+        //   notionalPrincipal IS the quantity (e.g. 40 BTC)
+        //   PP events reduce it directly (40 → 32 after 20% sell)
+        //
+        // CLM/UMP/PAM mode (positionQuantity > 0):
+        //   notionalPrincipal is in USD (e.g. $2,000,000)
+        //   positionQuantity is the actual BTC units (e.g. 40)
+        //   PP events reduce notionalPrincipal proportionally
+        //   Effective quantity = positionQuantity × (currentNP / initialNP)
+        //   Example: after 20% PP, NP = $1.6M, qty = 40 × (1.6M/2M) = 32
+        // ================================================================
+        double quantity;
+        String quantityMode;
+        if (this.positionQuantity > 0 && this.initialNotionalPrincipal > 0) {
+            // CLM/UMP/PAM mode: scale positionQuantity by PP reduction factor
+            double currentNP = Math.abs(states.notionalPrincipal);
+            double reductionFactor = currentNP / this.initialNotionalPrincipal;
+            quantity = this.positionQuantity * reductionFactor;
+            quantityMode = "CLM";
+        } else {
+            // Legacy STK/COM mode: notionalPrincipal IS the quantity
+            quantity = Math.abs(states.notionalPrincipal);
+            quantityMode = "STK";
+        }
 
         if (portfolioTotal <= 0.0) {
             System.out.println("**** AllocationDriftModel: time=" + time
@@ -111,6 +150,7 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         double allocation = assetValue / portfolioTotal;
 
         System.out.println("**** AllocationDriftModel: time=" + time
+                + " mode=" + quantityMode
                 + " spotPriceMOC=" + this.spotPriceMOC
                 + " spotPrice=" + String.format("%.2f", spotPrice)
                 + " quantity=" + String.format("%.6f", quantity)
