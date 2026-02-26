@@ -138,6 +138,22 @@ public class ContractModel implements ContractModelProvider{
             	map.put("tariffModels", tariffmdls);
             	// ================================================================
 
+            	// ================================================================
+            	// Parse defiLiquidationModels list (null-safe — field is optional)
+            	// ================================================================
+            	List<String> defimdls = (List<String>)attributes.get("defiLiquidationModels");
+            	System.out.println("**** fnp037: defimdls = <" + defimdls + ">");
+            	map.put("defiLiquidationModels", defimdls);
+            	// ================================================================
+
+            	// ================================================================
+            	// Parse discountingModels list (null-safe — field is optional)
+            	// ================================================================
+            	List<String> discmdls = (List<String>)attributes.get("discountingModels");
+            	System.out.println("**** fnp038: discmdls = <" + discmdls + ">");
+            	map.put("discountingModels", discmdls);
+            	// ================================================================
+
             } catch (Exception e) {
             throw new AttributeConversionException();
             }

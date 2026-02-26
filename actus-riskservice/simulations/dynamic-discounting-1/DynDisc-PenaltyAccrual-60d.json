@@ -1,0 +1,236 @@
+{
+  "info": {
+    "_postman_id": "dyndisc-penalty-60d-001",
+    "name": "DynDisc-PenaltyAccrual-60d",
+    "description": "ACTUS Dynamic Discounting: PENALTY ACCRUAL — Invoice goes overdue.\n\nScenario: Invoice not paid by due date. No buyer cash available (forces no early settlement).\nAfter maturity (day 30), PenaltyAccrualModel activates with STEPWISE penalty function:\n\nDefault stepSchedule:\n  Days 0-15 overdue:   0.05%/day ($50/day on $100K)\n  Days 16-30 overdue:  0.075%/day ($75/day)\n  Days 31-60 overdue:  0.10%/day ($100/day)\n  Days 61-90 overdue:  0.125%/day ($125/day)\n  Days 91+ overdue:    0.15%/day ($150/day)\n\nDelinquency alerts (via System.out.println):\n  Day 15 overdue: INFO    → 'Invoice is 15 days past due'\n  Day 30 overdue: WARNING → 'Invoice is 30 days past due, escalate'\n  Day 60 overdue: SEVERE  → 'Invoice is 60 days past due, collections'\n\nEXPECTED BEHAVIOR:\n  Days 1-30:  Normal PAM contract lifecycle (IED, RR events, etc.)\n              EarlySettlement NOT triggered (no buyer cash)\n  Day 31:     Maturity (MD event), invoice unpaid\n  Days 31-45: PenaltyAccrual INFO, penalty accrues at $50/day\n  Day 46:     WARNING threshold, penalty rate increases to $75/day\n  Days 46-60: WARNING, cumulative penalty growing\n  Day 60:     End of monitoring, cumulative penalty ~$2,250\n\nCONTRACT: PAM with 60-day maturity to allow post-due penalty monitoring.\n  statusDate=2026-02-28, IED=2026-03-01, maturity=2026-04-30\n  The invoice 'due date' is 2026-03-31 (30 days).\n  The contract runs to 2026-04-30 to observe 30 days of penalty.\n\nOpen Postman Console (Ctrl+Alt+C) before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Add BUYER_CASH (zero — forces no early settlement)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "http://localhost:8082/addReferenceIndex",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["addReferenceIndex"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"riskFactorID\":\"BUYER_CASH_03\",\"marketObjectCode\":\"BUYER_CASH_ZERO\",\"base\":1.0,\"data\":[{\"time\":\"2026-03-01T00:00:00\",\"value\":0},{\"time\":\"2026-03-15T00:00:00\",\"value\":0},{\"time\":\"2026-03-31T00:00:00\",\"value\":0},{\"time\":\"2026-04-15T00:00:00\",\"value\":0},{\"time\":\"2026-04-30T00:00:00\",\"value\":0}]}",
+          "options": {"raw": {"language": "json"}}
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('BUYER_CASH_ZERO added', function(){",
+        "    pm.response.to.have.status(200);",
+        "    pm.expect(pm.response.text()).to.include('Successfully');",
+        "    console.log('\\u2705 BUYER_CASH_03: $0 buyer treasury (forces no early settlement)');",
+        "    console.log('   → EarlySettlement will never trigger (insufficient cash)');",
+        "    console.log('   → Invoice goes to maturity unpaid → penalty accrual begins');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "2. Add EarlySettlementModel (will NOT trigger — no cash)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "http://localhost:8082/addEarlySettlementModel",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["addEarlySettlementModel"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"riskFactorId\":\"early_settle_inv003\",\"invoiceDate\":\"2026-03-01T00:00:00\",\"dueDate\":\"2026-03-31T00:00:00\",\"notionalAmount\":100000.0,\"maxDiscountRate\":0.02,\"discountFunctionType\":\"LINEAR\",\"decayLambda\":0.0,\"powerAlpha\":1.0,\"stepDiscountSchedule\":null,\"hurdleRateAnnualized\":0.08,\"buyerCashMOC\":\"BUYER_CASH_ZERO\",\"customDiscountMOC\":null,\"monitoringEventTimes\":[\"2026-03-01T00:00:00\",\"2026-03-05T00:00:00\",\"2026-03-10T00:00:00\",\"2026-03-15T00:00:00\",\"2026-03-20T00:00:00\",\"2026-03-25T00:00:00\",\"2026-03-31T00:00:00\"]}",
+          "options": {"raw": {"language": "json"}}
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('EarlySettlementModel added (will NOT trigger)', function(){",
+        "    pm.response.to.have.status(200);",
+        "    console.log('\\u2705 early_settle_inv003: EarlySettlement (LINEAR, no cash → won\\'t fire)');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "3. Add PenaltyAccrualModel (STEPWISE, default schedule)",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "http://localhost:8082/addPenaltyAccrualModel",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["addPenaltyAccrualModel"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"riskFactorId\":\"penalty_inv003\",\"dueDate\":\"2026-03-31T00:00:00\",\"penaltyFunctionType\":\"STEPWISE\",\"basePenaltyRate\":0.0005,\"penaltyGrowthLambda\":2.0,\"penaltyPowerAlpha\":1.5,\"penaltyStepSchedule\":{\"0\":0.0005,\"16\":0.00075,\"31\":0.001,\"61\":0.00125,\"91\":0.0015},\"penaltyRateMOC\":null,\"penaltyHorizonDays\":90,\"monitoringEventTimes\":[\"2026-03-01T00:00:00\",\"2026-03-05T00:00:00\",\"2026-03-10T00:00:00\",\"2026-03-15T00:00:00\",\"2026-03-20T00:00:00\",\"2026-03-25T00:00:00\",\"2026-03-31T00:00:00\",\"2026-04-01T00:00:00\",\"2026-04-02T00:00:00\",\"2026-04-03T00:00:00\",\"2026-04-04T00:00:00\",\"2026-04-05T00:00:00\",\"2026-04-06T00:00:00\",\"2026-04-07T00:00:00\",\"2026-04-08T00:00:00\",\"2026-04-09T00:00:00\",\"2026-04-10T00:00:00\",\"2026-04-11T00:00:00\",\"2026-04-12T00:00:00\",\"2026-04-13T00:00:00\",\"2026-04-14T00:00:00\",\"2026-04-15T00:00:00\",\"2026-04-16T00:00:00\",\"2026-04-17T00:00:00\",\"2026-04-18T00:00:00\",\"2026-04-19T00:00:00\",\"2026-04-20T00:00:00\",\"2026-04-21T00:00:00\",\"2026-04-22T00:00:00\",\"2026-04-23T00:00:00\",\"2026-04-24T00:00:00\",\"2026-04-25T00:00:00\",\"2026-04-26T00:00:00\",\"2026-04-27T00:00:00\",\"2026-04-28T00:00:00\",\"2026-04-29T00:00:00\",\"2026-04-30T00:00:00\"]}",
+          "options": {"raw": {"language": "json"}}
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('PenaltyAccrualModel added', function(){",
+        "    pm.response.to.have.status(200);",
+        "    console.log('\\u2705 penalty_inv003: PenaltyAccrualModel (STEPWISE)');",
+        "    console.log('   dueDate=2026-03-31, horizon=90 days');",
+        "    console.log('   Default step schedule:');",
+        "    console.log('     Days 0-15 overdue:  0.05%/day ($50/day on $100K)');",
+        "    console.log('     Days 16-30 overdue: 0.075%/day ($75/day)');",
+        "    console.log('     Days 31-60 overdue: 0.10%/day ($100/day)');",
+        "    console.log('   37 monitoring points (pre-due + 30 days post-due)');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "4. Add Scenario",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "http://localhost:8082/addScenario",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["addScenario"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"scenarioID\":\"dyndisc_penalty_60d\",\"riskFactorDescriptors\":[{\"riskFactorID\":\"BUYER_CASH_03\",\"riskFactorType\":\"ReferenceIndex\"},{\"riskFactorID\":\"early_settle_inv003\",\"riskFactorType\":\"EarlySettlement\"},{\"riskFactorID\":\"penalty_inv003\",\"riskFactorType\":\"PenaltyAccrual\"}]}",
+          "options": {"raw": {"language": "json"}}
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Scenario created', function(){",
+        "    pm.response.to.have.status(200);",
+        "    pm.expect(pm.response.text()).to.include('Successfully');",
+        "    console.log('\\u2705 dyndisc_penalty_60d: 1 ReferenceIndex + EarlySettlement + PenaltyAccrual');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "5a. Verify PenaltyAccrualModel",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8082/findPenaltyAccrualModel/penalty_inv003",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["findPenaltyAccrualModel", "penalty_inv003"]
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('PenaltyAccrualModel verified', function(){",
+        "    pm.response.to.have.status(200);",
+        "    var data = pm.response.json();",
+        "    pm.expect(data.riskFactorId).to.eql('penalty_inv003');",
+        "    pm.expect(data.penaltyFunctionType).to.eql('STEPWISE');",
+        "    console.log('\\u2705 penalty_inv003 confirmed:');",
+        "    console.log('   function=' + data.penaltyFunctionType);",
+        "    console.log('   stepSchedule=' + JSON.stringify(data.penaltyStepSchedule));",
+        "    console.log('   horizon=' + data.penaltyHorizonDays + ' days');",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "5b. Verify Scenario",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8082/findScenario/dyndisc_penalty_60d",
+          "protocol": "http",
+          "host": ["localhost:8082"],
+          "path": ["findScenario", "dyndisc_penalty_60d"]
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('Scenario verified', function(){",
+        "    pm.response.to.have.status(200);",
+        "    var data = pm.response.json();",
+        "    pm.expect(data.scenarioID).to.eql('dyndisc_penalty_60d');",
+        "    var types = data.riskFactorDescriptors.map(function(d){return d.riskFactorType;});",
+        "    pm.expect(types).to.include('PenaltyAccrual');",
+        "    console.log('\\u2705 Scenario descriptors: ' + JSON.stringify(types));",
+        "});"
+      ]}}]
+    },
+    {
+      "name": "6. Run PenaltyAccrual 60-Day Simulation",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": {
+          "raw": "http://localhost:8083/rf2/scenarioSimulation",
+          "protocol": "http",
+          "host": ["localhost:8083"],
+          "path": ["rf2", "scenarioSimulation"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"contracts\":[{\"calendar\":\"NC\",\"businessDayConvention\":\"SCF\",\"contractType\":\"PAM\",\"statusDate\":\"2026-02-28T00:00:00\",\"contractRole\":\"RPA\",\"contractID\":\"INV-2026-003-OVERDUE\",\"cycleAnchorDateOfInterestPayment\":\"2026-04-30T00:00:00\",\"cycleOfInterestPayment\":\"P1ML0\",\"nominalInterestRate\":0.0,\"dayCountConvention\":\"AA\",\"currency\":\"USD\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"initialExchangeDate\":\"2026-03-01T00:00:00\",\"maturityDate\":\"2026-04-30T00:00:00\",\"notionalPrincipal\":100000,\"premiumDiscountAtIED\":0,\"counterpartyID\":\"SupplierGHI\",\"creatorID\":\"BuyerXYZ\",\"discountingModels\":[\"early_settle_inv003\",\"penalty_inv003\"]}],\"scenarioDescriptor\":{\"scenarioID\":\"dyndisc_penalty_60d\",\"scenarioType\":\"scenario\"},\"simulateTo\":\"2026-04-30T00:00:00\",\"monitoringTimes\":[]}",
+          "options": {"raw": {"language": "json"}}
+        }
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('PenaltyAccrual 60d simulation', function(){",
+        "    pm.response.to.have.status(200);",
+        "    var data = pm.response.json();",
+        "    pm.expect(data[0].status).to.eql('Success');",
+        "    var events = data[0].events;",
+        "    console.log('\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550');",
+        "    console.log('DYNAMIC DISCOUNTING: PENALTY ACCRUAL — OVERDUE INVOICE');",
+        "    console.log('  Invoice: INV-2026-003-OVERDUE ($100K, SupplierGHI → BuyerXYZ)');",
+        "    console.log('  Due date: 2026-03-31, Monitoring to: 2026-04-30');",
+        "    console.log('  Penalty: STEPWISE (0.05%/day → 0.075%/day → 0.10%/day)');",
+        "    console.log('  Buyer cash: $0 (no early settlement possible)');",
+        "    console.log('\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550');",
+        "    console.log('Total events: ' + events.length);",
+        "    console.log('');",
+        "",
+        "    var counts = {};",
+        "    events.forEach(function(e){counts[e.type]=(counts[e.type]||0)+1;});",
+        "    Object.keys(counts).forEach(function(k){console.log('  '+k+': '+counts[k]);});",
+        "    console.log('');",
+        "",
+        "    var mrds = events.filter(function(e){return e.type==='MRD';});",
+        "    console.log('\\u2550\\u2550 PENALTY ACCRUAL EVENTS (MRD after 2026-03-31) \\u2550\\u2550');",
+        "    var cumulativePenalty = 0;",
+        "    mrds.forEach(function(m){",
+        "        if(m.time > '2026-03-31'){",
+        "            cumulativePenalty += Math.abs(m.payoff);",
+        "            console.log('  '+m.time+' penalty=$'+Math.abs(m.payoff).toFixed(2)+' cumulative=$'+cumulativePenalty.toFixed(2));",
+        "        } else {",
+        "            console.log('  '+m.time+' payoff=$'+m.payoff.toFixed(2)+' (pre-due: EarlySettlement check)');",
+        "        }",
+        "    });",
+        "",
+        "    console.log('');",
+        "    console.log('\\u2550\\u2550 EXPECTED PENALTY ACCRUAL \\u2550\\u2550');",
+        "    console.log('  Days 1-15 overdue: 15 × $50  = $750');",
+        "    console.log('  Days 16-30 overdue: 15 × $75 = $1,125');",
+        "    console.log('  Total at day 30:              ~$1,875');",
+        "    console.log('  (Exact amount depends on monitoring frequency)');",
+        "",
+        "    var md = events.filter(function(e){return e.type==='MD';})[0];",
+        "    if(md){",
+        "        console.log('');",
+        "        console.log('\\u2550\\u2550 MATURITY \\u2550\\u2550');",
+        "        console.log('  Final principal: $'+md.payoff.toFixed(2));",
+        "    }",
+        "    console.log('\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550\\u2550');",
+        "});",
+        "",
+        "pm.test('Events generated', function(){",
+        "    var data = pm.response.json();",
+        "    pm.expect(data[0].events.length).to.be.above(0);",
+        "});"
+      ]}}]
+    }
+  ]
+}

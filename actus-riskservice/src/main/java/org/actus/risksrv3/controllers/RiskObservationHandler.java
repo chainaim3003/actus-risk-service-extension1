@@ -60,6 +60,14 @@ import org.actus.risksrv3.models.defiliquidation1.CascadeProbabilityModelData;
 import org.actus.risksrv3.models.defiliquidation1.GasOptimizationModelData;
 import org.actus.risksrv3.models.defiliquidation1.InvoiceMaturityModelData;
 // ====== END DEFI LIQUIDATION MODEL DATA IMPORTS ======
+// ====== DYNAMIC DISCOUNTING MODEL DATA IMPORTS ======
+import org.actus.risksrv3.models.dynamicdiscounting1.EarlySettlementModelData;
+import org.actus.risksrv3.models.dynamicdiscounting1.PenaltyAccrualModelData;
+import org.actus.risksrv3.models.dynamicdiscounting1.OptimalPaymentTimingModelData;
+import org.actus.risksrv3.models.dynamicdiscounting1.SupplierUrgencyModelData;
+import org.actus.risksrv3.models.dynamicdiscounting1.FactoringDecisionModelData;
+import org.actus.risksrv3.models.dynamicdiscounting1.CashPoolOptimizationModelData;
+// ====== END DYNAMIC DISCOUNTING MODEL DATA IMPORTS ======
 import org.actus.risksrv3.repository.ReferenceIndexStore;
 import org.actus.risksrv3.repository.ScenarioStore;
 import org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -102,6 +110,14 @@ import org.actus.risksrv3.repository.defiliquidation1.CascadeProbabilityModelSto
 import org.actus.risksrv3.repository.defiliquidation1.GasOptimizationModelStore;
 import org.actus.risksrv3.repository.defiliquidation1.InvoiceMaturityModelStore;
 // ====== END DEFI LIQUIDATION STORE IMPORTS ======
+// ====== DYNAMIC DISCOUNTING STORE IMPORTS ======
+import org.actus.risksrv3.repository.dynamicdiscounting1.EarlySettlementModelStore;
+import org.actus.risksrv3.repository.dynamicdiscounting1.PenaltyAccrualModelStore;
+import org.actus.risksrv3.repository.dynamicdiscounting1.OptimalPaymentTimingModelStore;
+import org.actus.risksrv3.repository.dynamicdiscounting1.SupplierUrgencyModelStore;
+import org.actus.risksrv3.repository.dynamicdiscounting1.FactoringDecisionModelStore;
+import org.actus.risksrv3.repository.dynamicdiscounting1.CashPoolOptimizationModelStore;
+// ====== END DYNAMIC DISCOUNTING STORE IMPORTS ======
 import org.actus.risksrv3.utils.MultiBehaviorRiskModel;
 import org.actus.risksrv3.utils.MultiMarketRiskModel;
 import org.actus.risksrv3.utils.TimeSeriesModel;
@@ -145,6 +161,14 @@ import org.actus.risksrv3.utils.defiliquidation1.CascadeProbabilityModel;
 import org.actus.risksrv3.utils.defiliquidation1.GasOptimizationModel;
 import org.actus.risksrv3.utils.defiliquidation1.InvoiceMaturityModel;
 // ====== END DEFI LIQUIDATION MODEL UTIL IMPORTS ======
+// ====== DYNAMIC DISCOUNTING MODEL UTIL IMPORTS ======
+import org.actus.risksrv3.utils.dynamicdiscounting1.EarlySettlementModel;
+import org.actus.risksrv3.utils.dynamicdiscounting1.PenaltyAccrualModel;
+import org.actus.risksrv3.utils.dynamicdiscounting1.OptimalPaymentTimingModel;
+import org.actus.risksrv3.utils.dynamicdiscounting1.SupplierUrgencyModel;
+import org.actus.risksrv3.utils.dynamicdiscounting1.FactoringDecisionModel;
+import org.actus.risksrv3.utils.dynamicdiscounting1.CashPoolOptimizationModel;
+// ====== END DYNAMIC DISCOUNTING MODEL UTIL IMPORTS ======
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -234,6 +258,20 @@ public class RiskObservationHandler {
 	@Autowired
 	private InvoiceMaturityModelStore invoiceMaturityModelStore;
 	// ====== END DEFI LIQUIDATION MODEL STORES ======
+	// ====== DYNAMIC DISCOUNTING MODEL STORES ======
+	@Autowired
+	private EarlySettlementModelStore earlySettlementModelStore;
+	@Autowired
+	private PenaltyAccrualModelStore penaltyAccrualModelStore;
+	@Autowired
+	private OptimalPaymentTimingModelStore optimalPaymentTimingModelStore;
+	@Autowired
+	private SupplierUrgencyModelStore supplierUrgencyModelStore;
+	@Autowired
+	private FactoringDecisionModelStore factoringDecisionModelStore;
+	@Autowired
+	private CashPoolOptimizationModelStore cashPoolOptimizationModelStore;
+	// ====== END DYNAMIC DISCOUNTING MODEL STORES ======
 
 // local state attributes and objects 
 // these are the state variables used for processing simulation requests 
@@ -756,6 +794,58 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  // ================================================================
+			  // ================================================================
+			  // DYNAMIC DISCOUNTING BEHAVIORAL MODELS (6 models)
+			  // ================================================================
+			  else if (rfd.getRiskFactorType().equals("EarlySettlement")) {
+				  Optional<EarlySettlementModelData> odata = this.earlySettlementModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp260 found EarlySettlementModel ; rfxid = " + rfxid);
+					  EarlySettlementModel mdl = new EarlySettlementModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  } else { throw new org.actus.risksrv3.controllers.dynamicdiscounting1.EarlySettlementModelNotFoundException(rfxid); }
+			  }
+			  else if (rfd.getRiskFactorType().equals("PenaltyAccrual")) {
+				  Optional<PenaltyAccrualModelData> odata = this.penaltyAccrualModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp261 found PenaltyAccrualModel ; rfxid = " + rfxid);
+					  PenaltyAccrualModel mdl = new PenaltyAccrualModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  } else { throw new org.actus.risksrv3.controllers.dynamicdiscounting1.PenaltyAccrualModelNotFoundException(rfxid); }
+			  }
+			  else if (rfd.getRiskFactorType().equals("OptimalPaymentTiming")) {
+				  Optional<OptimalPaymentTimingModelData> odata = this.optimalPaymentTimingModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp262 found OptimalPaymentTimingModel ; rfxid = " + rfxid);
+					  OptimalPaymentTimingModel mdl = new OptimalPaymentTimingModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  } else { throw new org.actus.risksrv3.controllers.dynamicdiscounting1.OptimalPaymentTimingModelNotFoundException(rfxid); }
+			  }
+			  else if (rfd.getRiskFactorType().equals("SupplierUrgency")) {
+				  Optional<SupplierUrgencyModelData> odata = this.supplierUrgencyModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp263 found SupplierUrgencyModel ; rfxid = " + rfxid);
+					  SupplierUrgencyModel mdl = new SupplierUrgencyModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  } else { throw new org.actus.risksrv3.controllers.dynamicdiscounting1.SupplierUrgencyModelNotFoundException(rfxid); }
+			  }
+			  else if (rfd.getRiskFactorType().equals("FactoringDecision")) {
+				  Optional<FactoringDecisionModelData> odata = this.factoringDecisionModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp264 found FactoringDecisionModel ; rfxid = " + rfxid);
+					  FactoringDecisionModel mdl = new FactoringDecisionModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  } else { throw new org.actus.risksrv3.controllers.dynamicdiscounting1.FactoringDecisionModelNotFoundException(rfxid); }
+			  }
+			  else if (rfd.getRiskFactorType().equals("CashPoolOptimization")) {
+				  Optional<CashPoolOptimizationModelData> odata = this.cashPoolOptimizationModelStore.findById(rfxid);
+				  if (odata.isPresent()) {
+					  System.out.println("**** fnp265 found CashPoolOptimizationModel ; rfxid = " + rfxid);
+					  CashPoolOptimizationModel mdl = new CashPoolOptimizationModel(rfxid, odata.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, mdl);
+				  } else { throw new org.actus.risksrv3.controllers.dynamicdiscounting1.CashPoolOptimizationModelNotFoundException(rfxid); }
+			  }
+			  // ====== END DYNAMIC DISCOUNTING ======
 			  else {
 				  System.out.println("**** fnp208 unrecognized rfType= " + rfd.getRiskFactorType() );
 			  }
@@ -799,6 +889,9 @@ public class RiskObservationHandler {
 		  List<String> defimdls = contractModel.getAs("defiLiquidationModels");
 		  if (defimdls != null)
 			  mdls.addAll(defimdls);
+		  List<String> discmdls = contractModel.getAs("discountingModels");
+		  if (discmdls != null)
+			  mdls.addAll(discmdls);
 		  
 		  List<CalloutData> observations = new ArrayList<CalloutData>();
 		  for (String mdl : mdls) {

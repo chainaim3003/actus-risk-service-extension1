@@ -41,6 +41,14 @@ import  org.actus.risksrv3.models.defiliquidation1.CascadeProbabilityModelData;
 import  org.actus.risksrv3.models.defiliquidation1.GasOptimizationModelData;
 import  org.actus.risksrv3.models.defiliquidation1.InvoiceMaturityModelData;
 // ====== END DEFI LIQUIDATION MODEL IMPORTS ======
+// ====== DYNAMIC DISCOUNTING MODEL IMPORTS ======
+import  org.actus.risksrv3.models.dynamicdiscounting1.EarlySettlementModelData;
+import  org.actus.risksrv3.models.dynamicdiscounting1.PenaltyAccrualModelData;
+import  org.actus.risksrv3.models.dynamicdiscounting1.OptimalPaymentTimingModelData;
+import  org.actus.risksrv3.models.dynamicdiscounting1.SupplierUrgencyModelData;
+import  org.actus.risksrv3.models.dynamicdiscounting1.FactoringDecisionModelData;
+import  org.actus.risksrv3.models.dynamicdiscounting1.CashPoolOptimizationModelData;
+// ====== END DYNAMIC DISCOUNTING MODEL IMPORTS ======
 import  org.actus.risksrv3.repository.ReferenceIndexStore;
 import  org.actus.risksrv3.repository.ScenarioStore;
 import  org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
@@ -83,6 +91,14 @@ import  org.actus.risksrv3.repository.defiliquidation1.CascadeProbabilityModelSt
 import  org.actus.risksrv3.repository.defiliquidation1.GasOptimizationModelStore;
 import  org.actus.risksrv3.repository.defiliquidation1.InvoiceMaturityModelStore;
 // ====== END DEFI LIQUIDATION STORE IMPORTS ======
+// ====== DYNAMIC DISCOUNTING STORE IMPORTS ======
+import  org.actus.risksrv3.repository.dynamicdiscounting1.EarlySettlementModelStore;
+import  org.actus.risksrv3.repository.dynamicdiscounting1.PenaltyAccrualModelStore;
+import  org.actus.risksrv3.repository.dynamicdiscounting1.OptimalPaymentTimingModelStore;
+import  org.actus.risksrv3.repository.dynamicdiscounting1.SupplierUrgencyModelStore;
+import  org.actus.risksrv3.repository.dynamicdiscounting1.FactoringDecisionModelStore;
+import  org.actus.risksrv3.repository.dynamicdiscounting1.CashPoolOptimizationModelStore;
+// ====== END DYNAMIC DISCOUNTING STORE IMPORTS ======
 import  org.springframework.beans.factory.annotation.Autowired;
 import  org.springframework.beans.factory.annotation.Value;
 import  org.springframework.web.bind.annotation.*;
@@ -170,6 +186,20 @@ public class RiskDataManager {
 	@Autowired
 	private InvoiceMaturityModelStore invoiceMaturityModelStore;
 	// ====== END DEFI LIQUIDATION MODEL STORES ======
+	// ====== DYNAMIC DISCOUNTING MODEL STORES ======
+	@Autowired
+	private EarlySettlementModelStore earlySettlementModelStore;
+	@Autowired
+	private PenaltyAccrualModelStore penaltyAccrualModelStore;
+	@Autowired
+	private OptimalPaymentTimingModelStore optimalPaymentTimingModelStore;
+	@Autowired
+	private SupplierUrgencyModelStore supplierUrgencyModelStore;
+	@Autowired
+	private FactoringDecisionModelStore factoringDecisionModelStore;
+	@Autowired
+	private CashPoolOptimizationModelStore cashPoolOptimizationModelStore;
+	// ====== END DYNAMIC DISCOUNTING MODEL STORES ======
 	
 	private
 	@Value("${spring.data.mongodb.host}")
@@ -961,4 +991,115 @@ public class RiskDataManager {
     public List<InvoiceMaturityModelData> getInvoiceMaturityModels() {
         return invoiceMaturityModelStore.findAll();
     }
+
+    // ====== DYNAMIC DISCOUNTING ENDPOINTS ======
+
+    // --- 9.1 EarlySettlementModel ---
+    @PostMapping("/addEarlySettlementModel")
+    public String saveEarlySettlementModelData(@RequestBody EarlySettlementModelData data) {
+        earlySettlementModelStore.save(data); return "EarlySettlementModel added successfully\n";
+    }
+    @DeleteMapping("/deleteEarlySettlementModel/{id}")
+    public String deleteEarlySettlementModel(@PathVariable String id) {
+        earlySettlementModelStore.deleteById(id); return "EarlySettlementModel deleted successfully\n";
+    }
+    @GetMapping("/findEarlySettlementModel/{id}")
+    public Optional<EarlySettlementModelData> findEarlySettlementModelData(@PathVariable String id) {
+        return earlySettlementModelStore.findById(id);
+    }
+    @GetMapping("/findAllEarlySettlementModels")
+    public List<EarlySettlementModelData> getEarlySettlementModels() {
+        return earlySettlementModelStore.findAll();
+    }
+
+    // --- 9.2 PenaltyAccrualModel ---
+    @PostMapping("/addPenaltyAccrualModel")
+    public String savePenaltyAccrualModelData(@RequestBody PenaltyAccrualModelData data) {
+        penaltyAccrualModelStore.save(data); return "PenaltyAccrualModel added successfully\n";
+    }
+    @DeleteMapping("/deletePenaltyAccrualModel/{id}")
+    public String deletePenaltyAccrualModel(@PathVariable String id) {
+        penaltyAccrualModelStore.deleteById(id); return "PenaltyAccrualModel deleted successfully\n";
+    }
+    @GetMapping("/findPenaltyAccrualModel/{id}")
+    public Optional<PenaltyAccrualModelData> findPenaltyAccrualModelData(@PathVariable String id) {
+        return penaltyAccrualModelStore.findById(id);
+    }
+    @GetMapping("/findAllPenaltyAccrualModels")
+    public List<PenaltyAccrualModelData> getPenaltyAccrualModels() {
+        return penaltyAccrualModelStore.findAll();
+    }
+
+    // --- 9.3 OptimalPaymentTimingModel ---
+    @PostMapping("/addOptimalPaymentTimingModel")
+    public String saveOptimalPaymentTimingModelData(@RequestBody OptimalPaymentTimingModelData data) {
+        optimalPaymentTimingModelStore.save(data); return "OptimalPaymentTimingModel added successfully\n";
+    }
+    @DeleteMapping("/deleteOptimalPaymentTimingModel/{id}")
+    public String deleteOptimalPaymentTimingModel(@PathVariable String id) {
+        optimalPaymentTimingModelStore.deleteById(id); return "OptimalPaymentTimingModel deleted successfully\n";
+    }
+    @GetMapping("/findOptimalPaymentTimingModel/{id}")
+    public Optional<OptimalPaymentTimingModelData> findOptimalPaymentTimingModelData(@PathVariable String id) {
+        return optimalPaymentTimingModelStore.findById(id);
+    }
+    @GetMapping("/findAllOptimalPaymentTimingModels")
+    public List<OptimalPaymentTimingModelData> getOptimalPaymentTimingModels() {
+        return optimalPaymentTimingModelStore.findAll();
+    }
+
+    // --- 9.4 SupplierUrgencyModel ---
+    @PostMapping("/addSupplierUrgencyModel")
+    public String saveSupplierUrgencyModelData(@RequestBody SupplierUrgencyModelData data) {
+        supplierUrgencyModelStore.save(data); return "SupplierUrgencyModel added successfully\n";
+    }
+    @DeleteMapping("/deleteSupplierUrgencyModel/{id}")
+    public String deleteSupplierUrgencyModel(@PathVariable String id) {
+        supplierUrgencyModelStore.deleteById(id); return "SupplierUrgencyModel deleted successfully\n";
+    }
+    @GetMapping("/findSupplierUrgencyModel/{id}")
+    public Optional<SupplierUrgencyModelData> findSupplierUrgencyModelData(@PathVariable String id) {
+        return supplierUrgencyModelStore.findById(id);
+    }
+    @GetMapping("/findAllSupplierUrgencyModels")
+    public List<SupplierUrgencyModelData> getSupplierUrgencyModels() {
+        return supplierUrgencyModelStore.findAll();
+    }
+
+    // --- 9.5 FactoringDecisionModel ---
+    @PostMapping("/addFactoringDecisionModel")
+    public String saveFactoringDecisionModelData(@RequestBody FactoringDecisionModelData data) {
+        factoringDecisionModelStore.save(data); return "FactoringDecisionModel added successfully\n";
+    }
+    @DeleteMapping("/deleteFactoringDecisionModel/{id}")
+    public String deleteFactoringDecisionModel(@PathVariable String id) {
+        factoringDecisionModelStore.deleteById(id); return "FactoringDecisionModel deleted successfully\n";
+    }
+    @GetMapping("/findFactoringDecisionModel/{id}")
+    public Optional<FactoringDecisionModelData> findFactoringDecisionModelData(@PathVariable String id) {
+        return factoringDecisionModelStore.findById(id);
+    }
+    @GetMapping("/findAllFactoringDecisionModels")
+    public List<FactoringDecisionModelData> getFactoringDecisionModels() {
+        return factoringDecisionModelStore.findAll();
+    }
+
+    // --- 9.6 CashPoolOptimizationModel ---
+    @PostMapping("/addCashPoolOptimizationModel")
+    public String saveCashPoolOptimizationModelData(@RequestBody CashPoolOptimizationModelData data) {
+        cashPoolOptimizationModelStore.save(data); return "CashPoolOptimizationModel added successfully\n";
+    }
+    @DeleteMapping("/deleteCashPoolOptimizationModel/{id}")
+    public String deleteCashPoolOptimizationModel(@PathVariable String id) {
+        cashPoolOptimizationModelStore.deleteById(id); return "CashPoolOptimizationModel deleted successfully\n";
+    }
+    @GetMapping("/findCashPoolOptimizationModel/{id}")
+    public Optional<CashPoolOptimizationModelData> findCashPoolOptimizationModelData(@PathVariable String id) {
+        return cashPoolOptimizationModelStore.findById(id);
+    }
+    @GetMapping("/findAllCashPoolOptimizationModels")
+    public List<CashPoolOptimizationModelData> getCashPoolOptimizationModels() {
+        return cashPoolOptimizationModelStore.findAll();
+    }
+    // ====== END DYNAMIC DISCOUNTING ENDPOINTS ======
 }
