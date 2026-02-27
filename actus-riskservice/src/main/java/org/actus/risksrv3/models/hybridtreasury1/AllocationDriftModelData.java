@@ -71,6 +71,48 @@ public class AllocationDriftModelData {
     private double positionQuantity;            // e.g. 40.0 (BTC units)
     private double initialNotionalPrincipal;    // e.g. 2000000.0 (CLM) or 40.0 (STK)
 
+    // ================================================================
+    // Cash-mirror support: when an AllocationDriftModel is attached to
+    // a cash/fiat contract to mirror BTC rebalancing in the opposite
+    // direction. The same allocation signal is computed, then scaled
+    // by signalMultiplier to convert to the correct fraction of the
+    // cash contract's notionalPrincipal.
+    //
+    // signalMultiplier: scales the final allocation signal
+    //   - Default 1.0 (normal behavior for BTC contract)
+    //   - Set to -(btcPositionValue / cashNP) for cash mirror
+    //     e.g. -(2000000 / 500000) = -4.0
+    //   - Negative inverts direction: overweight BTC → sell BTC → buy cash
+    //
+    // useFixedQuantity: when true, positionQuantity is used as-is
+    //   without scaling by NP reduction factor. Required for cash
+    //   mirror because the cash contract's NP changes don't reflect
+    //   BTC quantity changes.
+    //   - Default false (normal CLM mode: scale by currentNP/initialNP)
+    //   - Set true for cash mirror contracts
+    // ================================================================
+    private double signalMultiplier = 1.0;
+    private boolean useFixedQuantity = false;
+
+    // ================================================================
+    // Mirror passthrough support: when set, this model does NOT compute
+    // allocation independently. Instead, stateAt() reads the dollar
+    // payoff cached by the source model and returns the equivalent
+    // fraction of this contract's NP (inverted direction).
+    //
+    // This guarantees dollar-for-dollar matching: if the source model
+    // sells $148K of BTC, the mirror adds exactly $148K to cash.
+    //
+    // When mirrorSourceModelId is set, spotPriceMOC, portfolioTotalValueMOC,
+    // targetAllocation, positionQuantity etc. are ignored at runtime.
+    // Only monitoringEventTimes is still used (for callout scheduling).
+    //
+    // REQUIREMENT: the source contract must appear BEFORE the mirror
+    // contract in the simulation contracts array, so the source model's
+    // stateAt() runs first and populates the dollar cache.
+    // ================================================================
+    private String mirrorSourceModelId;
+
     public AllocationDriftModelData() {
     }
 
@@ -102,4 +144,13 @@ public class AllocationDriftModelData {
 
     public double getInitialNotionalPrincipal() { return initialNotionalPrincipal; }
     public void setInitialNotionalPrincipal(double initialNotionalPrincipal) { this.initialNotionalPrincipal = initialNotionalPrincipal; }
+
+    public double getSignalMultiplier() { return signalMultiplier; }
+    public void setSignalMultiplier(double signalMultiplier) { this.signalMultiplier = signalMultiplier; }
+
+    public boolean isUseFixedQuantity() { return useFixedQuantity; }
+    public void setUseFixedQuantity(boolean useFixedQuantity) { this.useFixedQuantity = useFixedQuantity; }
+
+    public String getMirrorSourceModelId() { return mirrorSourceModelId; }
+    public void setMirrorSourceModelId(String mirrorSourceModelId) { this.mirrorSourceModelId = mirrorSourceModelId; }
 }

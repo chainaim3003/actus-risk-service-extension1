@@ -9,8 +9,10 @@ import org.actus.risksrv3.utils.MultiMarketRiskModel;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -75,6 +77,15 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
     private final double positionQuantity;           // 0 = legacy STK mode
     private final double initialNotionalPrincipal;   // 0 = legacy STK mode
 
+    // Cash-mirror support fields
+    private final double signalMultiplier;            // default 1.0; set -4.0 for cash mirror
+    private final boolean useFixedQuantity;           // default false; true = bypass NP reduction scaling
+
+    // Mirror passthrough support
+    private final String mirrorSourceModelId;          // null = normal mode; set = read from source cache
+    private AllocationDriftModel mirrorSource;          // wired by RiskObservationHandler after construction
+    private final Map<LocalDateTime, Double> dollarPayoffCache = new HashMap<>();  // time → dollar amount from stateAt()
+
     public AllocationDriftModel(String riskFactorId,
                                 AllocationDriftModelData data,
                                 MultiMarketRiskModel marketModel) {
@@ -88,6 +99,24 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         this.marketModel               = marketModel;
         this.positionQuantity          = data.getPositionQuantity();
         this.initialNotionalPrincipal  = data.getInitialNotionalPrincipal();
+        this.signalMultiplier          = data.getSignalMultiplier();
+        this.useFixedQuantity          = data.isUseFixedQuantity();
+        this.mirrorSourceModelId       = data.getMirrorSourceModelId();
+    }
+
+    /** Called by RiskObservationHandler to wire the source model reference */
+    public void setMirrorSource(AllocationDriftModel source) {
+        this.mirrorSource = source;
+    }
+
+    /** Returns the mirrorSourceModelId from config (null if normal mode) */
+    public String getMirrorSourceModelId() {
+        return this.mirrorSourceModelId;
+    }
+
+    /** Read cached dollar payoff for a given time (used by mirror models) */
+    public Double getCachedDollarPayoff(LocalDateTime time) {
+        return this.dollarPayoffCache.get(time);
     }
 
     @Override
@@ -109,26 +138,68 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
     @Override
     public double stateAt(String id, LocalDateTime time, StateSpace states) {
 
+        // ================================================================
+        // MIRROR PASSTHROUGH MODE
+        // If this model is a mirror, read the source model's cached dollar
+        // payoff and return the equivalent fraction of THIS contract's NP
+        // (inverted direction: source sells → mirror receives).
+        // ================================================================
+        if (this.mirrorSourceModelId != null && this.mirrorSource != null) {
+            Double sourceDollars = this.mirrorSource.getCachedDollarPayoff(time);
+            double currentNP = Math.abs(states.notionalPrincipal);
+
+            if (sourceDollars == null || sourceDollars == 0.0 || currentNP <= 0.0) {
+                System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: MIRROR time=" + time
+                        + " sourceDollars=" + sourceDollars + " currentNP=" + String.format("%.2f", currentNP)
+                        + " → signal=0.0 (no source payoff)");
+                return 0.0;
+            }
+
+            // sourceDollars is positive when source SOLD (PP payoff > 0)
+            // Mirror should RECEIVE that amount: signal = -(dollars / NP)
+            // STF_PP_rf2 applies: NP -= signal * NP = NP -= (-(dollars/NP)) * NP = NP += dollars
+            double mirrorSignal = -(sourceDollars / currentNP);
+
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: MIRROR time=" + time
+                    + " sourceDollars=" + String.format("%.2f", sourceDollars)
+                    + " currentNP=" + String.format("%.2f", currentNP)
+                    + " → mirrorSignal=" + String.format("%.6f", mirrorSignal)
+                    + " (cash will change by " + String.format("%.2f", sourceDollars) + ")");
+            return mirrorSignal;
+        }
+
         double spotPrice = this.marketModel.stateAt(this.spotPriceMOC, time);
         double portfolioTotal = this.marketModel.stateAt(this.portfolioTotalValueMOC, time);
 
         // ================================================================
         // Compute effective quantity of the digital asset
         //
-        // Legacy STK/COM mode (positionQuantity == 0):
-        //   notionalPrincipal IS the quantity (e.g. 40 BTC)
-        //   PP events reduce it directly (40 → 32 after 20% sell)
+        // Three modes of operation:
         //
-        // CLM/UMP/PAM mode (positionQuantity > 0):
-        //   notionalPrincipal is in USD (e.g. $2,000,000)
-        //   positionQuantity is the actual BTC units (e.g. 40)
-        //   PP events reduce notionalPrincipal proportionally
-        //   Effective quantity = positionQuantity × (currentNP / initialNP)
-        //   Example: after 20% PP, NP = $1.6M, qty = 40 × (1.6M/2M) = 32
+        // 1. FIXED mode (useFixedQuantity == true):
+        //    positionQuantity is used as-is, no NP reduction scaling.
+        //    Used for cash-mirror contracts where this contract's NP
+        //    is the cash balance, not the BTC position.
+        //    Example: positionQuantity=40 (BTC), cash NP=$500K
+        //
+        // 2. CLM/UMP/PAM mode (positionQuantity > 0, useFixedQuantity == false):
+        //    notionalPrincipal is in USD (e.g. $2,000,000)
+        //    positionQuantity is the actual BTC units (e.g. 40)
+        //    PP events reduce notionalPrincipal proportionally
+        //    Effective quantity = positionQuantity × (currentNP / initialNP)
+        //    Example: after 20% PP, NP = $1.6M, qty = 40 × (1.6M/2M) = 32
+        //
+        // 3. Legacy STK/COM mode (positionQuantity == 0):
+        //    notionalPrincipal IS the quantity (e.g. 40 BTC)
+        //    PP events reduce it directly (40 → 32 after 20% sell)
         // ================================================================
         double quantity;
         String quantityMode;
-        if (this.positionQuantity > 0 && this.initialNotionalPrincipal > 0) {
+        if (this.useFixedQuantity && this.positionQuantity > 0) {
+            // FIXED mode: use positionQuantity as-is (cash mirror)
+            quantity = this.positionQuantity;
+            quantityMode = "FIXED";
+        } else if (this.positionQuantity > 0 && this.initialNotionalPrincipal > 0) {
             // CLM/UMP/PAM mode: scale positionQuantity by PP reduction factor
             double currentNP = Math.abs(states.notionalPrincipal);
             double reductionFactor = currentNP / this.initialNotionalPrincipal;
@@ -141,7 +212,7 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         }
 
         if (portfolioTotal <= 0.0) {
-            System.out.println("**** AllocationDriftModel: time=" + time
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: time=" + time
                     + " WARNING: portfolioTotal <= 0, returning 0.0");
             return 0.0;
         }
@@ -149,7 +220,7 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         double assetValue = quantity * spotPrice;
         double allocation = assetValue / portfolioTotal;
 
-        System.out.println("**** AllocationDriftModel: time=" + time
+        System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: time=" + time
                 + " mode=" + quantityMode
                 + " spotPriceMOC=" + this.spotPriceMOC
                 + " spotPrice=" + String.format("%.2f", spotPrice)
@@ -159,21 +230,37 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
                 + " allocation=" + String.format("%.4f", allocation)
                 + " target=" + targetAllocation
                 + " max=" + maxAllocation
-                + " min=" + minAllocation);
+                + " min=" + minAllocation
+                + " signalMultiplier=" + signalMultiplier);
 
         if (allocation > this.maxAllocation) {
             double driftFraction = allocation - this.targetAllocation;
-            System.out.println("**** AllocationDriftModel: OVERWEIGHT drift="
+            double finalSignal = Math.min(1.0, driftFraction) * this.signalMultiplier;
+            // Cache dollar payoff for mirror models to read
+            double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
+            this.dollarPayoffCache.put(time, dollarPayoff);
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: OVERWEIGHT drift="
                     + String.format("%.4f", driftFraction)
-                    + " → rebalance sell signal");
-            return Math.min(1.0, driftFraction);
+                    + " × multiplier=" + String.format("%.2f", signalMultiplier)
+                    + " → finalSignal=" + String.format("%.6f", finalSignal)
+                    + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
+            return finalSignal;
         } else if (allocation < this.minAllocation) {
             double driftFraction = this.targetAllocation - allocation;
-            System.out.println("**** AllocationDriftModel: UNDERWEIGHT drift="
+            double finalSignal = -Math.min(1.0, driftFraction) * this.signalMultiplier;
+            // Cache dollar payoff for mirror models to read
+            double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
+            this.dollarPayoffCache.put(time, dollarPayoff);
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: UNDERWEIGHT drift="
                     + String.format("%.4f", driftFraction)
-                    + " → rebalance buy signal");
-            return -Math.min(1.0, driftFraction);
+                    + " × multiplier=" + String.format("%.2f", signalMultiplier)
+                    + " → finalSignal=" + String.format("%.6f", finalSignal)
+                    + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
+            return finalSignal;
         } else {
+            // Cache zero for mirror models
+            this.dollarPayoffCache.put(time, 0.0);
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: WITHIN BAND → signal=0.0 (cached)");
             return 0.0;
         }
     }

@@ -850,32 +850,6 @@ public class RiskObservationHandler {
 				  System.out.println("**** fnp208 unrecognized rfType= " + rfd.getRiskFactorType() );
 			  }
 		  }	
-		  // ================================================================
-		  // MIRROR WIRING: After all models are created, wire any
-		  // AllocationDriftModel mirrors to their source models.
-		  // The mirror model reads cached dollar payoffs from the source,
-		  // guaranteeing dollar-for-dollar matching across contracts.
-		  // E.g. ad_btc01 (source on CLM) sells $148K BTC →
-		  //      ad_cash_mirror01 (mirror on PAM cash) receives $148K
-		  // ================================================================
-		  for (String key : this.currentBehaviorModel.keys()) {
-			  Object mdlObj = this.currentBehaviorModel.getModel(key);
-			  if (mdlObj instanceof AllocationDriftModel) {
-				  AllocationDriftModel adm = (AllocationDriftModel) mdlObj;
-				  String mirrorSrcId = adm.getMirrorSourceModelId();
-				  if (mirrorSrcId != null && !mirrorSrcId.isEmpty()) {
-					  Object srcObj = this.currentBehaviorModel.getModel(mirrorSrcId);
-					  if (srcObj instanceof AllocationDriftModel) {
-						  adm.setMirrorSource((AllocationDriftModel) srcObj);
-						  System.out.println("**** fnp238 MIRROR WIRED: " + key + " → source=" + mirrorSrcId);
-					  } else {
-						  System.out.println("**** fnp238 WARNING: mirror source " + mirrorSrcId 
-								  + " not found or not AllocationDriftModel for mirror " + key);
-					  }
-				  }
-			  }
-		  }
-
 		  this.currentActivatedModels.clear();
 		  String outstr = "** CurrentMarketModel initialized for scenario "+ currentScenarioID + "\n";
 		  outstr += "keys are: " + this.currentMarketModel.keys().toString();

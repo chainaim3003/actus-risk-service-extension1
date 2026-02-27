@@ -25,6 +25,15 @@ public class MultiBehaviorRiskModel implements BehaviorRiskModelProvider {
 		model.put(symbol,behaviorModel);
 	}
 
+	/**
+	 * Retrieve a specific behavior model by its ID.
+	 * Used by RiskObservationHandler to wire mirror passthrough references
+	 * between AllocationDriftModel instances (source → mirror).
+	 */
+	public BehaviorRiskModelProvider getModel(String id) {
+		return model.get(id);
+	}
+
 	public double stateAt(String id, LocalDateTime time, StateSpace state) {
 		System.out.println("** fnp061 in stateAt id = " + id );
 		System.out.println("** fnp062 model.get(id) = " + model.get(id).toString());
