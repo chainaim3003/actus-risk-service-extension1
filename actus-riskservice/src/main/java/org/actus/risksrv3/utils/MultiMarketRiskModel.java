@@ -20,7 +20,18 @@ public class MultiMarketRiskModel implements MarketRiskModelProvider {
 		model.put(symbol,dimension);
 	}
 
+	public boolean containsKey(String id) {
+		return model.containsKey(id);
+	}
+
 	public double stateAt(String id, LocalDateTime time) {
-		return model.get(id).stateAt(id,time);
+		MarketRiskModelProvider provider = model.get(id);
+		if (provider == null) {
+			throw new IllegalArgumentException(
+				"MarketObjectCode '" + id + "' not found in active scenario. "
+				+ "Available MOCs: " + model.keySet()
+				+ ". Add a ReferenceIndex with this marketObjectCode to the scenario.");
+		}
+		return provider.stateAt(id, time);
 	}
 }

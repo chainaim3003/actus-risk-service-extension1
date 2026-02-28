@@ -935,7 +935,19 @@ public class RiskObservationHandler {
 	  Double doMarketStateAt(@RequestBody StateAtInput stateAtInput) {
 		  String id = stateAtInput.getId();
 		  System.out.println("***fnp2071 looking for moc= " + id + " market Keys= " + currentMarketModel.keys().toString() );
-		  LocalDateTime time = stateAtInput.getTime();	
+		  LocalDateTime time = stateAtInput.getTime();
+		  if (!this.currentMarketModel.containsKey(id)) {
+			  System.out.println("**** ERROR: MarketObjectCode '" + id
+				  + "' NOT FOUND in scenario '" + this.currentScenarioID
+				  + "'. Available MOCs: " + currentMarketModel.keys()
+				  + ". Add a ReferenceIndex with marketObjectCode='" + id
+				  + "' to the scenario.");
+			  throw new IllegalArgumentException(
+				  "MarketObjectCode '" + id + "' not found in scenario '"
+				  + this.currentScenarioID + "'. Available MOCs: "
+				  + currentMarketModel.keys()
+				  + ". Add a ReferenceIndex with this marketObjectCode to the scenario.");
+		  }
 		  Double dval = this.currentMarketModel.stateAt(id, time);
 		  System.out.println("**** fnp207: /marketStateAt id = "+id+" time= "
 		     + time.toString() + " scenario= " + this.currentScenarioID +
