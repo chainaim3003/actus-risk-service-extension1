@@ -69,6 +69,14 @@ System.out.println("****fnp012 age=<" + String.valueOf(age) + ">; starting surfa
 		// create an events list 
 		List<CalloutData> cllds = new ArrayList<CalloutData>();
 		for (String ppevd : this.prepaymentEventTimes) {
+				 // PP-before-IED fix: skip callouts before contract starts
+				 if (this.initialExchangeDate != null) {
+					 LocalDateTime eventDateTime = LocalDateTime.parse(ppevd);
+					 if (eventDateTime.isBefore(this.initialExchangeDate)) {
+						 System.out.println("**** TwoDimensionalPrepaymentModel: SKIPPING pre-IED callout " + ppevd + " (IED=" + this.initialExchangeDate + ")");
+						 continue;
+					 }
+				 }
 				 CalloutData clld = new  CalloutData(this.riskFactorId,ppevd, TwoDimensionalPrepaymentModel.CALLOUT_TYPE);
 				 cllds.add(clld);
 			 }

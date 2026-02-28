@@ -85,11 +85,20 @@ public class TwoDimensionalDepositTrxModel implements BehaviorRiskModelProvider 
     }
 
     public List<CalloutData> contractStart (ContractModel contract) {
-		// save initialExchangeDate of this contract 
+		// save contractID and initialExchangeDate of this contract 
 		this.contractID  = contract.getAs("contractID");
+		LocalDateTime ied = contract.getAs("initialExchangeDate");
 		// create an events list 
 		List<CalloutData> cllds = new ArrayList<CalloutData>();
 		for (String dtevd : this.depositTrxEventTimes) {
+				 // PP-before-IED fix: skip callouts before contract starts
+				 if (ied != null) {
+					 LocalDateTime eventDateTime = LocalDateTime.parse(dtevd);
+					 if (eventDateTime.isBefore(ied)) {
+						 System.out.println("**** TwoDimensionalDepositTrxModel: SKIPPING pre-IED callout " + dtevd + " (IED=" + ied + ")");
+						 continue;
+					 }
+				 }
 				 CalloutData clld = new  CalloutData(this.riskFactorId,dtevd, TwoDimensionalDepositTrxModel.CALLOUT_TYPE);
 				 cllds.add(clld);
 			 }

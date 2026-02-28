@@ -128,8 +128,16 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
 
     @Override
     public List<CalloutData> contractStart(ContractModel contract) {
+        LocalDateTime ied = contract.getAs("initialExchangeDate");
         List<CalloutData> callouts = new ArrayList<>();
         for (String eventTime : this.monitoringEventTimes) {
+            if (ied != null) {
+                LocalDateTime eventDateTime = LocalDateTime.parse(eventTime);
+                if (eventDateTime.isBefore(ied)) {
+                    System.out.println("**** AllocationDriftModel: SKIPPING pre-IED callout " + eventTime + " (IED=" + ied + ")");
+                    continue;
+                }
+            }
             callouts.add(new CalloutData(this.riskFactorId, eventTime, CALLOUT_TYPE));
         }
         return callouts;

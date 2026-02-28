@@ -65,8 +65,10 @@ public class RegulatoryDeRiskModel implements BehaviorRiskModelProvider {
 
     @Override
     public List<CalloutData> contractStart(ContractModel contract) {
+        LocalDateTime ied = contract.getAs("initialExchangeDate");
         List<CalloutData> callouts = new ArrayList<>();
         for (String eventTime : this.monitoringEventTimes) {
+            if (ied != null) { LocalDateTime edt = LocalDateTime.parse(eventTime); if (edt.isBefore(ied)) { System.out.println("**** RegulatoryDeRiskModel: SKIPPING pre-IED callout " + eventTime + " (IED=" + ied + ")"); continue; } }
             callouts.add(new CalloutData(this.riskFactorId, eventTime, CALLOUT_TYPE));
         }
         return callouts;

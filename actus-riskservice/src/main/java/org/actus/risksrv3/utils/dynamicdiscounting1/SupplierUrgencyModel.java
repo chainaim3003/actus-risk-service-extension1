@@ -58,8 +58,19 @@ public class SupplierUrgencyModel implements BehaviorRiskModelProvider {
 
     @Override public Set<String> keys() { Set<String> k = new HashSet<>(); k.add(riskFactorId); return k; }
     @Override public List<CalloutData> contractStart(ContractModel contract) {
+        // PP-before-IED fix: filter out callouts before contract starts
+        LocalDateTime ied = contract.getAs("initialExchangeDate");
         List<CalloutData> c = new ArrayList<>();
-        for (String t : monitoringEventTimes) c.add(new CalloutData(riskFactorId, t, CALLOUT_TYPE));
+        for (String t : monitoringEventTimes) {
+            if (ied != null) {
+                LocalDateTime eventDateTime = LocalDateTime.parse(t);
+                if (eventDateTime.isBefore(ied)) {
+                    System.out.println("**** SupplierUrgencyModel: SKIPPING pre-IED callout " + t + " (IED=" + ied + ")");
+                    continue;
+                }
+            }
+            c.add(new CalloutData(riskFactorId, t, CALLOUT_TYPE));
+        }
         return c;
     }
     @Override public double stateAt(String id, LocalDateTime time, StateSpace states) {
