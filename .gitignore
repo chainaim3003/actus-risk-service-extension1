@@ -2,3 +2,6 @@
 build/
 *.log
 node_modules/
+
+# Build-time copy - always recreated by start-local.bat
+actus-service/actus-core/
