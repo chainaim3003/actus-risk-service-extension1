@@ -2,12 +2,12 @@
   "info": {
     "_postman_id": "sc3-08c",
     "name": "08c-Integrated-ModerateScenario",
-    "description": "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%. SOFR peaks 4.8%.",
+    "description": "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Run Integrated Moderate",
+      "name": "Run 08c-Integrated-ModerateScenario",
       "request": {
         "method": "POST",
         "header": [
@@ -46,7 +46,7 @@
               "    pm.response.to.have.status(200);",
               "    var data = pm.response.json();",
               "    console.log('='.repeat(64));",
-              "    console.log('INTEGRATED MODERATE: 26% TARIFF (Scenario B)');",
+              "    console.log('INTEGRATED Moderate (Scenario B): 26% tariff');",
               "    console.log('='.repeat(64));",
               "    data.forEach(function(r, idx){",
               "        console.log('');",
@@ -59,9 +59,9 @@
               "        var totalIP = 0;",
               "        events.filter(function(e){return e.type==='IP';}).forEach(function(e){",
               "            totalIP += e.payoff;",
-              "            console.log('  ' + e.time.substring(0,10) + ' IP payoff=$' + e.payoff.toFixed(2) + ' rate=' + (e.nominalRate||0).toFixed(6));",
+              "            console.log('  ' + e.time.substring(0,10) + ' IP payoff=' + e.payoff.toFixed(2) + ' rate=' + (e.nominalRate||0).toFixed(6));",
               "        });",
-              "        console.log('  TOTAL IP: $' + totalIP.toFixed(2));",
+              "        console.log('  TOTAL IP: ' + totalIP.toFixed(2));",
               "    });",
               "    console.log('='.repeat(64));",
               "});"

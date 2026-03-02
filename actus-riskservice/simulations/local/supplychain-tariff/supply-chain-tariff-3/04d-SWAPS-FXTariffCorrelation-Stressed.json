@@ -1,13 +1,13 @@
 {
   "info": {
-    "_postman_id": "sc3-01d",
-    "name": "01d-SWAPS-TariffSpread-Stressed",
-    "description": "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.",
+    "_postman_id": "sc3-04d",
+    "name": "04d-SWAPS-FXTariffCorrelation-Stressed",
+    "description": "SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6.0%.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Run 01d-SWAPS-TariffSpread-Stressed",
+      "name": "Run 04d-SWAPS-FXTariffCorrelation-Stressed",
       "request": {
         "method": "POST",
         "header": [
@@ -28,7 +28,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\"contracts\":[{\"contractType\":\"SWAPS\",\"contractID\":\"SWAPS-TS-ST-01\",\"contractRole\":\"RFL\",\"currency\":\"USD\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"statusDate\":\"2026-02-28T00:00:00\",\"deliverySettlement\":\"D\",\"contractStructure\":[{\"object\":{\"contractType\":\"PAM\",\"contractID\":\"SWAPS-TS-ST-01-leg1-fixed\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"initialExchangeDate\":\"2026-03-01T00:00:00\",\"currency\":\"USD\",\"statusDate\":\"2026-02-28T00:00:00\",\"notionalPrincipal\":\"700000\",\"dayCountConvention\":\"30E360\",\"nominalInterestRate\":\"0.048\",\"maturityDate\":\"2029-03-01T00:00:00\",\"cycleAnchorDateOfInterestPayment\":\"2026-06-01T00:00:00\",\"cycleOfInterestPayment\":\"P3ML1\",\"premiumDiscountAtIED\":\"0\"},\"referenceType\":\"CNT\",\"referenceRole\":\"FIL\"},{\"object\":{\"contractType\":\"PAM\",\"contractID\":\"SWAPS-TS-ST-01-leg2-float\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"initialExchangeDate\":\"2026-03-01T00:00:00\",\"currency\":\"USD\",\"statusDate\":\"2026-02-28T00:00:00\",\"notionalPrincipal\":\"700000\",\"dayCountConvention\":\"30E360\",\"nominalInterestRate\":\"0.0425\",\"maturityDate\":\"2029-03-01T00:00:00\",\"cycleAnchorDateOfInterestPayment\":\"2026-06-01T00:00:00\",\"cycleOfInterestPayment\":\"P3ML1\",\"cycleOfRateReset\":\"P3ML1\",\"cycleAnchorDateOfRateReset\":\"2026-03-01T00:00:00\",\"marketObjectCodeOfRateReset\":\"USD_SOFR_STRESS\",\"rateMultiplier\":\"1.0\",\"rateSpread\":\"0.0\",\"premiumDiscountAtIED\":\"0\"},\"referenceType\":\"CNT\",\"referenceRole\":\"SEL\"}]}],\"riskFactors\":[{\"marketObjectCode\":\"USD_SOFR_STRESS\",\"base\":1.0,\"data\":[{\"time\":\"2026-03-01T00:00:00\",\"value\":0.0425},{\"time\":\"2026-06-01T00:00:00\",\"value\":0.048},{\"time\":\"2026-09-01T00:00:00\",\"value\":0.053},{\"time\":\"2026-12-01T00:00:00\",\"value\":0.055},{\"time\":\"2027-03-01T00:00:00\",\"value\":0.055},{\"time\":\"2027-06-01T00:00:00\",\"value\":0.053},{\"time\":\"2027-09-01T00:00:00\",\"value\":0.05},{\"time\":\"2027-12-01T00:00:00\",\"value\":0.048},{\"time\":\"2028-03-01T00:00:00\",\"value\":0.046},{\"time\":\"2028-06-01T00:00:00\",\"value\":0.045},{\"time\":\"2028-09-01T00:00:00\",\"value\":0.045},{\"time\":\"2028-12-01T00:00:00\",\"value\":0.045},{\"time\":\"2029-03-01T00:00:00\",\"value\":0.045}]}]}",
+          "raw": "{\"contracts\":[{\"contractType\":\"SWAPS\",\"contractID\":\"SWAPS-FX-ST-01\",\"contractRole\":\"RFL\",\"currency\":\"USD\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"statusDate\":\"2026-02-28T00:00:00\",\"deliverySettlement\":\"D\",\"contractStructure\":[{\"object\":{\"contractType\":\"PAM\",\"contractID\":\"SWAPS-FX-ST-01-leg1-fixed\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"initialExchangeDate\":\"2026-03-01T00:00:00\",\"currency\":\"USD\",\"statusDate\":\"2026-02-28T00:00:00\",\"notionalPrincipal\":\"700000\",\"dayCountConvention\":\"30E360\",\"nominalInterestRate\":\"0.05\",\"maturityDate\":\"2029-03-01T00:00:00\",\"cycleAnchorDateOfInterestPayment\":\"2026-06-01T00:00:00\",\"cycleOfInterestPayment\":\"P3ML1\",\"premiumDiscountAtIED\":\"0\"},\"referenceType\":\"CNT\",\"referenceRole\":\"FIL\"},{\"object\":{\"contractType\":\"PAM\",\"contractID\":\"SWAPS-FX-ST-01-leg2-float\",\"contractDealDate\":\"2026-02-28T00:00:00\",\"initialExchangeDate\":\"2026-03-01T00:00:00\",\"currency\":\"USD\",\"statusDate\":\"2026-02-28T00:00:00\",\"notionalPrincipal\":\"700000\",\"dayCountConvention\":\"30E360\",\"nominalInterestRate\":\"0.0425\",\"maturityDate\":\"2029-03-01T00:00:00\",\"cycleAnchorDateOfInterestPayment\":\"2026-06-01T00:00:00\",\"cycleOfInterestPayment\":\"P3ML1\",\"cycleOfRateReset\":\"P3ML1\",\"cycleAnchorDateOfRateReset\":\"2026-03-01T00:00:00\",\"marketObjectCodeOfRateReset\":\"USD_SOFR_FX\",\"rateMultiplier\":\"1.0\",\"rateSpread\":\"0.0\",\"premiumDiscountAtIED\":\"0\"},\"referenceType\":\"CNT\",\"referenceRole\":\"SEL\"}]}],\"riskFactors\":[{\"marketObjectCode\":\"USD_SOFR_FX\",\"base\":1.0,\"data\":[{\"time\":\"2026-03-01T00:00:00\",\"value\":0.0425},{\"time\":\"2026-06-01T00:00:00\",\"value\":0.05},{\"time\":\"2026-09-01T00:00:00\",\"value\":0.058},{\"time\":\"2026-12-01T00:00:00\",\"value\":0.06},{\"time\":\"2027-03-01T00:00:00\",\"value\":0.058},{\"time\":\"2027-06-01T00:00:00\",\"value\":0.055},{\"time\":\"2027-09-01T00:00:00\",\"value\":0.052},{\"time\":\"2027-12-01T00:00:00\",\"value\":0.05},{\"time\":\"2028-03-01T00:00:00\",\"value\":0.048},{\"time\":\"2028-06-01T00:00:00\",\"value\":0.047},{\"time\":\"2028-09-01T00:00:00\",\"value\":0.046},{\"time\":\"2028-12-01T00:00:00\",\"value\":0.045},{\"time\":\"2029-03-01T00:00:00\",\"value\":0.045}]}]}",
           "options": {
             "raw": {
               "language": "json"
@@ -46,7 +46,7 @@
               "    pm.response.to.have.status(200);",
               "    var data = pm.response.json();",
               "    console.log('='.repeat(64));",
-              "    console.log('SWAPS TariffSpread STRESSED: Fixed 4');",
+              "    console.log('SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6');",
               "    console.log('='.repeat(64));",
               "    var r = data[0];",
               "    if(r.status !== 'Success'){ console.log('FAILED: ' + (r.statusMessage||'unknown')); return; }",

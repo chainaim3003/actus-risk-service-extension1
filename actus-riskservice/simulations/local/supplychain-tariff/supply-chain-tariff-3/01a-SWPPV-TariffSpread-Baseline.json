@@ -2,12 +2,12 @@
   "info": {
     "_postman_id": "sc3-01a",
     "name": "01a-SWPPV-TariffSpread-Baseline",
-    "description": "SWPPV TariffSpread BASELINE: No tariff. $700K swap, fixed 4.2%, SOFR easing 4.25% to 3.5%. Scenario A.",
+    "description": "SWPPV TariffSpread BASELINE: No tariff. 70% hedge ($700K). Fixed 4.2%, receive SOFR easing 4.25%\u21923.5%. Scenario A.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Run SWPPV Baseline",
+      "name": "Run 01a-SWPPV-TariffSpread-Baseline",
       "request": {
         "method": "POST",
         "header": [
@@ -46,7 +46,7 @@
               "    pm.response.to.have.status(200);",
               "    var data = pm.response.json();",
               "    console.log('='.repeat(64));",
-              "    console.log('SWPPV TARIFF SPREAD BASELINE (No Tariff)');",
+              "    console.log('SWPPV TariffSpread BASELINE: No tariff');",
               "    console.log('='.repeat(64));",
               "    var r = data[0];",
               "    if(r.status !== 'Success'){ console.log('FAILED: ' + (r.statusMessage||'unknown')); return; }",
@@ -60,10 +60,10 @@
               "    console.log('INTEREST PAYMENTS:');",
               "    events.filter(function(e){return e.type==='IP';}).forEach(function(e){",
               "        totalIP += e.payoff;",
-              "        console.log('  ' + e.time.substring(0,10) + '  payoff=$' + e.payoff.toFixed(2) + '  rate=' + (e.nominalRate||0).toFixed(6));",
+              "        console.log('  ' + e.time.substring(0,10) + '  payoff=' + e.payoff.toFixed(2) + '  rate=' + (e.nominalRate||0).toFixed(6));",
               "    });",
-              "    console.log('TOTAL IP: $' + totalIP.toFixed(2));",
-              "    console.log('='.repeat(64));",
+              "    console.log('TOTAL IP: ' + totalIP.toFixed(2));",
+              "    console.log('');",
               "});"
             ]
           }

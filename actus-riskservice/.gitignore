@@ -25,3 +25,5 @@ replay_pid*
 /.gradle/
 /build/
 /bin/
+
+actus-service/actus-core/

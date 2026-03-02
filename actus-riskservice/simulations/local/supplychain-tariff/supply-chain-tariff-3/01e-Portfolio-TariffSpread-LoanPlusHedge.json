@@ -2,12 +2,12 @@
   "info": {
     "_postman_id": "sc3-01e",
     "name": "01e-Portfolio-TariffSpread-LoanPlusHedge",
-    "description": "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves approx $35K.",
+    "description": "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves ~$35K.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Run Portfolio Loan+Hedge",
+      "name": "Run 01e-Portfolio-TariffSpread-LoanPlusHedge",
       "request": {
         "method": "POST",
         "header": [
@@ -46,7 +46,7 @@
               "    pm.response.to.have.status(200);",
               "    var data = pm.response.json();",
               "    console.log('='.repeat(64));",
-              "    console.log('PORTFOLIO: $1M LOAN + $700K SWAP HEDGE (50% Tariff)');",
+              "    console.log('PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4');",
               "    console.log('='.repeat(64));",
               "    data.forEach(function(r, idx){",
               "        console.log('');",
@@ -59,9 +59,9 @@
               "        var totalIP = 0;",
               "        events.filter(function(e){return e.type==='IP';}).forEach(function(e){",
               "            totalIP += e.payoff;",
-              "            console.log('  ' + e.time.substring(0,10) + ' IP payoff=$' + e.payoff.toFixed(2) + ' rate=' + (e.nominalRate||0).toFixed(6));",
+              "            console.log('  ' + e.time.substring(0,10) + ' IP payoff=' + e.payoff.toFixed(2) + ' rate=' + (e.nominalRate||0).toFixed(6));",
               "        });",
-              "        console.log('  TOTAL IP: $' + totalIP.toFixed(2));",
+              "        console.log('  TOTAL IP: ' + totalIP.toFixed(2));",
               "    });",
               "    console.log('='.repeat(64));",
               "});"
