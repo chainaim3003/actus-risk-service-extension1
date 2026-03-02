@@ -162,13 +162,372 @@ def _test_script_single(title):
         "    console.log('INTEREST PAYMENTS:');",
         "    events.filter(function(e){return e.type==='IP';}).forEach(function(e){",
         "        totalIP += e.payoff;",
-        "        console.log('  ' + e.time.substring(0,10) + '  payoff=' + e.payoff.toFixed(2) + '  rate=' + (e.nominalRate||0).toFixed(6));",
-        "    });",
-        "    console.log('TOTAL IP: ' + totalIP.toFixed(2));",
-        "    console.log('');",
-        "});",
-    ]
+        "        console.log('  ' + e.time.substring(0,10) + '  payoff=
 
+
+# === 1. TARIFF SPREAD ===
+print("\n=== 1. TARIFF SPREAD ===")
+save("01a-SWPPV-TariffSpread-Baseline.json",
+     [make_swppv_contract("SWPPV-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV TariffSpread BASELINE: No tariff. 70% hedge ($700K). Fixed 4.2%, receive SOFR easing 4.25%→3.5%. Scenario A.")
+save("01b-SWPPV-TariffSpread-Stressed.json",
+     [make_swppv_contract("SWPPV-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV TariffSpread STRESSED: 50% tariff. Fixed 4.8% locked before blow-out. SOFR spikes 4.25%→5.5%. Scenario C.")
+save("01c-SWAPS-TariffSpread-Baseline.json",
+     [make_swaps_contract("SWAPS-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS TariffSpread BASELINE: Two-leg structure. Fixed leg 4.2%, Float leg SOFR.")
+save("01d-SWAPS-TariffSpread-Stressed.json",
+     [make_swaps_contract("SWAPS-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.")
+save("01e-Portfolio-TariffSpread-LoanPlusHedge.json",
+     [make_pam_loan("LOAN-TS-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+      make_swppv_contract("HEDGE-TS-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves ~$35K.")
+
+# === 2. REVENUE ELASTICITY (GTAP Armington) ===
+print("\n=== 2. REVENUE ELASTICITY ===")
+save("02a-SWPPV-RevenueElasticity-Baseline.json",
+     [make_swppv_contract("SWPPV-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV RevenueElasticity BASELINE: Full revenue, full $700K hedge. Textiles σ=3.8.")
+save("02b-SWPPV-RevenueElasticity-Stressed.json",
+     [make_swppv_contract("SWPPV-RE-ST-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV RevenueElasticity STRESSED: Textiles σ=3.8, 50% tariff → 38% revenue drop. Hedge right-sized to $434K.")
+save("02c-SWAPS-RevenueElasticity-Baseline.json",
+     [make_swaps_contract("SWAPS-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS RevenueElasticity BASELINE: Full $700K two-leg structure.")
+save("02d-SWAPS-RevenueElasticity-Electronics.json",
+     [make_swaps_contract("SWAPS-RE-ELE-01", 150000, 0.052, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS RevenueElasticity ELECTRONICS: σ=8.1. 60% tariff → near-total collapse. $150K hedge. Survival mode.")
+
+# === 3. PORT CONGESTION ===
+print("\n=== 3. PORT CONGESTION ===")
+save("03a-SWPPV-PortCongestion-Baseline.json",
+     [make_swppv_contract("SWPPV-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV PortCongestion BASELINE: Normal 4-day port dwell.")
+save("03b-SWPPV-PortCongestion-Stressed.json",
+     [make_swppv_contract("SWPPV-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWPPV PortCongestion STRESSED: 12-day dwell, SOFR+50bps logistics spread. ~$15K/shipment extra.")
+save("03c-SWAPS-PortCongestion-Baseline.json",
+     [make_swaps_contract("SWAPS-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS PortCongestion BASELINE: Two-leg swap, no congestion.")
+save("03d-SWAPS-PortCongestion-Stressed.json",
+     [make_swaps_contract("SWAPS-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWAPS PortCongestion STRESSED: Float leg SOFR+50bps logistics spread.")
+
+# === 4. FX-TARIFF CORRELATION ===
+print("\n=== 4. FX-TARIFF CORRELATION ===")
+save("04a-SWPPV-FXTariffCorrelation-Baseline.json",
+     [make_swppv_contract("SWPPV-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV FXTariffCorrelation BASELINE: No FX stress.")
+save("04b-SWPPV-FXTariffCorrelation-Stressed.json",
+     [make_swppv_contract("SWPPV-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWPPV FXTariffCorrelation STRESSED: INR -12%, SOFR peaks 6.0%. Fixed 5.0%.")
+save("04c-SWAPS-FXTariffCorrelation-Baseline.json",
+     [make_swaps_contract("SWAPS-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS FXTariffCorrelation BASELINE: Two-leg swap, no FX stress.")
+save("04d-SWAPS-FXTariffCorrelation-Stressed.json",
+     [make_swaps_contract("SWAPS-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6.0%.")
+
+# === 5. HEDGE EFFECTIVENESS ===
+print("\n=== 5. HEDGE EFFECTIVENESS ===")
+for ratio, pct in [(0.30, "30pct"), (0.50, "50pct"), (0.70, "70pct"), (0.80, "80pct")]:
+    n = int(1000000 * ratio)
+    save(f"05a-SWPPV-HedgeEffectiveness-{pct}.json",
+         [make_swppv_contract(f"SWPPV-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWPPV HedgeEffectiveness {pct}: {int(ratio*100)}% hedge = ${n:,}. Scenario C.")
+    save(f"05b-SWAPS-HedgeEffectiveness-{pct}.json",
+         [make_swaps_contract(f"SWAPS-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWAPS HedgeEffectiveness {pct}: Two-leg, {int(ratio*100)}% hedge.")
+for ratio, pct, label in [(0.30, "30pct", "Marine-Conservative"),
+                           (0.70, "70pct", "Textiles-Standard"),
+                           (0.80, "80pct", "Gems-Aggressive")]:
+    n = int(1000000 * ratio)
+    save(f"05c-Portfolio-HedgeEffectiveness-{pct}-{label}.json",
+         [make_pam_loan("LOAN-HE-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+          make_swppv_contract(f"HEDGE-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {label}: $1M loan + ${n:,} SWPPV ({int(ratio*100)}%).")
+
+# === 6. WORKING CAPITAL STRESS ===
+print("\n=== 6. WORKING CAPITAL STRESS ===")
+IWC = 1200000; IH = 840000
+save("06a-SWPPV-WorkingCapitalStress-Baseline.json",
+     [make_swppv_contract("SWPPV-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV WorkingCapitalStress BASELINE: Normal $1M WC, $700K hedge.")
+save("06b-SWPPV-WorkingCapitalStress-Stressed.json",
+     [make_swppv_contract("SWPPV-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV WorkingCapitalStress STRESSED: WC +20% to $1.2M. $840K hedge at 5.0%.")
+save("06c-SWAPS-WorkingCapitalStress-Baseline.json",
+     [make_swaps_contract("SWAPS-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS WorkingCapitalStress BASELINE: Two-leg swap, normal WC.")
+save("06d-SWAPS-WorkingCapitalStress-Stressed.json",
+     [make_swaps_contract("SWAPS-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS WorkingCapitalStress STRESSED: Two-leg, increased WC.")
+save("06e-Portfolio-WorkingCapitalStress-Full.json",
+     [make_pam_loan("LOAN-WC-01", IWC, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-WC-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1.2M loan (SOFR+300bps) + $840K hedge. The CFO Playbook 'squeeze'.")
+
+# === 7. COMMODITY CORRIDORS ===
+print("\n=== 7. COMMODITY CORRIDORS ===")
+corridors = [
+    {"name": "IN-Textiles", "sigma": 3.8, "hr": 0.80, "fr": 0.050, "sp": 0.025, "n": 1000000,
+     "d": "Indian Textiles (Tirupur). σ=3.8. Hedge 80%. 50% tariff → 30-50% decline."},
+    {"name": "IN-Gems", "sigma": 3.8, "hr": 0.85, "fr": 0.052, "sp": 0.030, "n": 2000000,
+     "d": "Indian Gems (Surat). US=60% exports. Hedge 80-90%. Extreme concentration."},
+    {"name": "IN-Marine", "sigma": 1.3, "hr": 0.55, "fr": 0.044, "sp": 0.020, "n": 500000,
+     "d": "Indian Marine/Shrimp. σ=1.3 LOW. Hedge 50-60%. Natural stickiness."},
+    {"name": "CN-Electronics", "sigma": 8.1, "hr": 0.90, "fr": 0.055, "sp": 0.035, "n": 5000000,
+     "d": "Chinese Electronics (Shenzhen). σ=8.1 VERY HIGH. Hedge 90%+. Survival mode."},
+    {"name": "MX-AutoParts", "sigma": 2.8, "hr": 0.65, "fr": 0.046, "sp": 0.022, "n": 3000000,
+     "d": "Mexican Auto Parts. σ=2.8 MODERATE. Hedge 60-70%. USMCA leverage."},
+]
+for c in corridors:
+    hn = int(c["n"] * c["hr"]); t = c["name"].replace("-","").replace(" ","")
+    save(f"07-SWPPV-Corridor-{c['name']}.json",
+         [make_swppv_contract(f"SWPPV-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWPPV {c['name']}: {c['d']}")
+    save(f"07-SWAPS-Corridor-{c['name']}.json",
+         [make_swaps_contract(f"SWAPS-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWAPS {c['name']}: {c['d']}")
+    save(f"07-Portfolio-Corridor-{c['name']}.json",
+         [make_pam_loan(f"LOAN-{t}-01", c["n"], 0.0425+c["sp"], "USD_SOFR_STRESS", spread=c["sp"]),
+          make_swppv_contract(f"HEDGE-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {c['name']}: ${c['n']:,} loan + ${hn:,} hedge ({int(c['hr']*100)}%). {c['d']}")
+
+# === 8. INTEGRATED ===
+print("\n=== 8. INTEGRATED ===")
+save("08a-Integrated-TariffSpread-RevenueElasticity.json",
+     [make_pam_loan("LOAN-INT-TSRE-01", 620000, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-INT-TSRE-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "INTEGRATED TariffSpread+RevenueElasticity: Revenue -38% (σ=3.8), spread +100bps, SOFR spikes.")
+save("08b-Integrated-AllFactors-WorstCase.json",
+     [make_pam_loan("LOAN-INT-ALL-01", 1200000, 0.0875, "USD_SOFR_FX", spread=0.035),
+      make_swppv_contract("HEDGE-INT-ALL-01", 960000, 0.052, 0.0425, "USD_SOFR_FX"),
+      make_pam_loan("LOAN-INT-PORT-01", 200000, 0.075, "USD_SOFR_FX", spread=0.030,
+                    maturity="2027-03-01T00:00:00")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "INTEGRATED ALL FACTORS: $1.2M loan + $960K hedge + $200K port facility. FX peak 6.0%.")
+save("08c-Integrated-ModerateScenario.json",
+     [make_pam_loan("LOAN-INT-MOD-01", 1000000, 0.070, "USD_SOFR_MOD", spread=0.025),
+      make_swppv_contract("HEDGE-INT-MOD-01", 650000, 0.045, 0.0425, "USD_SOFR_MOD")],
+     [make_rf_data("USD_SOFR_MOD", SOFR_MODERATE)],
+     "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%.")
+
+print(f"\n{'='*60}\nGENERATION COMPLETE\nOutput: {OUTPUT_DIR}\nEndpoint: {ACTUS_URL}\n{'='*60}")
+ + e.payoff.toFixed(2) + '  rate=' + (e.nominalRate||0).toFixed(6));",
+        "    });",
+        "    console.log('TOTAL IP: 
+
+
+# === 1. TARIFF SPREAD ===
+print("\n=== 1. TARIFF SPREAD ===")
+save("01a-SWPPV-TariffSpread-Baseline.json",
+     [make_swppv_contract("SWPPV-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV TariffSpread BASELINE: No tariff. 70% hedge ($700K). Fixed 4.2%, receive SOFR easing 4.25%→3.5%. Scenario A.")
+save("01b-SWPPV-TariffSpread-Stressed.json",
+     [make_swppv_contract("SWPPV-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV TariffSpread STRESSED: 50% tariff. Fixed 4.8% locked before blow-out. SOFR spikes 4.25%→5.5%. Scenario C.")
+save("01c-SWAPS-TariffSpread-Baseline.json",
+     [make_swaps_contract("SWAPS-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS TariffSpread BASELINE: Two-leg structure. Fixed leg 4.2%, Float leg SOFR.")
+save("01d-SWAPS-TariffSpread-Stressed.json",
+     [make_swaps_contract("SWAPS-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.")
+save("01e-Portfolio-TariffSpread-LoanPlusHedge.json",
+     [make_pam_loan("LOAN-TS-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+      make_swppv_contract("HEDGE-TS-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves ~$35K.")
+
+# === 2. REVENUE ELASTICITY (GTAP Armington) ===
+print("\n=== 2. REVENUE ELASTICITY ===")
+save("02a-SWPPV-RevenueElasticity-Baseline.json",
+     [make_swppv_contract("SWPPV-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV RevenueElasticity BASELINE: Full revenue, full $700K hedge. Textiles σ=3.8.")
+save("02b-SWPPV-RevenueElasticity-Stressed.json",
+     [make_swppv_contract("SWPPV-RE-ST-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV RevenueElasticity STRESSED: Textiles σ=3.8, 50% tariff → 38% revenue drop. Hedge right-sized to $434K.")
+save("02c-SWAPS-RevenueElasticity-Baseline.json",
+     [make_swaps_contract("SWAPS-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS RevenueElasticity BASELINE: Full $700K two-leg structure.")
+save("02d-SWAPS-RevenueElasticity-Electronics.json",
+     [make_swaps_contract("SWAPS-RE-ELE-01", 150000, 0.052, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS RevenueElasticity ELECTRONICS: σ=8.1. 60% tariff → near-total collapse. $150K hedge. Survival mode.")
+
+# === 3. PORT CONGESTION ===
+print("\n=== 3. PORT CONGESTION ===")
+save("03a-SWPPV-PortCongestion-Baseline.json",
+     [make_swppv_contract("SWPPV-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV PortCongestion BASELINE: Normal 4-day port dwell.")
+save("03b-SWPPV-PortCongestion-Stressed.json",
+     [make_swppv_contract("SWPPV-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWPPV PortCongestion STRESSED: 12-day dwell, SOFR+50bps logistics spread. ~$15K/shipment extra.")
+save("03c-SWAPS-PortCongestion-Baseline.json",
+     [make_swaps_contract("SWAPS-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS PortCongestion BASELINE: Two-leg swap, no congestion.")
+save("03d-SWAPS-PortCongestion-Stressed.json",
+     [make_swaps_contract("SWAPS-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWAPS PortCongestion STRESSED: Float leg SOFR+50bps logistics spread.")
+
+# === 4. FX-TARIFF CORRELATION ===
+print("\n=== 4. FX-TARIFF CORRELATION ===")
+save("04a-SWPPV-FXTariffCorrelation-Baseline.json",
+     [make_swppv_contract("SWPPV-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV FXTariffCorrelation BASELINE: No FX stress.")
+save("04b-SWPPV-FXTariffCorrelation-Stressed.json",
+     [make_swppv_contract("SWPPV-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWPPV FXTariffCorrelation STRESSED: INR -12%, SOFR peaks 6.0%. Fixed 5.0%.")
+save("04c-SWAPS-FXTariffCorrelation-Baseline.json",
+     [make_swaps_contract("SWAPS-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS FXTariffCorrelation BASELINE: Two-leg swap, no FX stress.")
+save("04d-SWAPS-FXTariffCorrelation-Stressed.json",
+     [make_swaps_contract("SWAPS-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6.0%.")
+
+# === 5. HEDGE EFFECTIVENESS ===
+print("\n=== 5. HEDGE EFFECTIVENESS ===")
+for ratio, pct in [(0.30, "30pct"), (0.50, "50pct"), (0.70, "70pct"), (0.80, "80pct")]:
+    n = int(1000000 * ratio)
+    save(f"05a-SWPPV-HedgeEffectiveness-{pct}.json",
+         [make_swppv_contract(f"SWPPV-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWPPV HedgeEffectiveness {pct}: {int(ratio*100)}% hedge = ${n:,}. Scenario C.")
+    save(f"05b-SWAPS-HedgeEffectiveness-{pct}.json",
+         [make_swaps_contract(f"SWAPS-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWAPS HedgeEffectiveness {pct}: Two-leg, {int(ratio*100)}% hedge.")
+for ratio, pct, label in [(0.30, "30pct", "Marine-Conservative"),
+                           (0.70, "70pct", "Textiles-Standard"),
+                           (0.80, "80pct", "Gems-Aggressive")]:
+    n = int(1000000 * ratio)
+    save(f"05c-Portfolio-HedgeEffectiveness-{pct}-{label}.json",
+         [make_pam_loan("LOAN-HE-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+          make_swppv_contract(f"HEDGE-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {label}: $1M loan + ${n:,} SWPPV ({int(ratio*100)}%).")
+
+# === 6. WORKING CAPITAL STRESS ===
+print("\n=== 6. WORKING CAPITAL STRESS ===")
+IWC = 1200000; IH = 840000
+save("06a-SWPPV-WorkingCapitalStress-Baseline.json",
+     [make_swppv_contract("SWPPV-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV WorkingCapitalStress BASELINE: Normal $1M WC, $700K hedge.")
+save("06b-SWPPV-WorkingCapitalStress-Stressed.json",
+     [make_swppv_contract("SWPPV-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV WorkingCapitalStress STRESSED: WC +20% to $1.2M. $840K hedge at 5.0%.")
+save("06c-SWAPS-WorkingCapitalStress-Baseline.json",
+     [make_swaps_contract("SWAPS-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS WorkingCapitalStress BASELINE: Two-leg swap, normal WC.")
+save("06d-SWAPS-WorkingCapitalStress-Stressed.json",
+     [make_swaps_contract("SWAPS-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS WorkingCapitalStress STRESSED: Two-leg, increased WC.")
+save("06e-Portfolio-WorkingCapitalStress-Full.json",
+     [make_pam_loan("LOAN-WC-01", IWC, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-WC-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1.2M loan (SOFR+300bps) + $840K hedge. The CFO Playbook 'squeeze'.")
+
+# === 7. COMMODITY CORRIDORS ===
+print("\n=== 7. COMMODITY CORRIDORS ===")
+corridors = [
+    {"name": "IN-Textiles", "sigma": 3.8, "hr": 0.80, "fr": 0.050, "sp": 0.025, "n": 1000000,
+     "d": "Indian Textiles (Tirupur). σ=3.8. Hedge 80%. 50% tariff → 30-50% decline."},
+    {"name": "IN-Gems", "sigma": 3.8, "hr": 0.85, "fr": 0.052, "sp": 0.030, "n": 2000000,
+     "d": "Indian Gems (Surat). US=60% exports. Hedge 80-90%. Extreme concentration."},
+    {"name": "IN-Marine", "sigma": 1.3, "hr": 0.55, "fr": 0.044, "sp": 0.020, "n": 500000,
+     "d": "Indian Marine/Shrimp. σ=1.3 LOW. Hedge 50-60%. Natural stickiness."},
+    {"name": "CN-Electronics", "sigma": 8.1, "hr": 0.90, "fr": 0.055, "sp": 0.035, "n": 5000000,
+     "d": "Chinese Electronics (Shenzhen). σ=8.1 VERY HIGH. Hedge 90%+. Survival mode."},
+    {"name": "MX-AutoParts", "sigma": 2.8, "hr": 0.65, "fr": 0.046, "sp": 0.022, "n": 3000000,
+     "d": "Mexican Auto Parts. σ=2.8 MODERATE. Hedge 60-70%. USMCA leverage."},
+]
+for c in corridors:
+    hn = int(c["n"] * c["hr"]); t = c["name"].replace("-","").replace(" ","")
+    save(f"07-SWPPV-Corridor-{c['name']}.json",
+         [make_swppv_contract(f"SWPPV-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWPPV {c['name']}: {c['d']}")
+    save(f"07-SWAPS-Corridor-{c['name']}.json",
+         [make_swaps_contract(f"SWAPS-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWAPS {c['name']}: {c['d']}")
+    save(f"07-Portfolio-Corridor-{c['name']}.json",
+         [make_pam_loan(f"LOAN-{t}-01", c["n"], 0.0425+c["sp"], "USD_SOFR_STRESS", spread=c["sp"]),
+          make_swppv_contract(f"HEDGE-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {c['name']}: ${c['n']:,} loan + ${hn:,} hedge ({int(c['hr']*100)}%). {c['d']}")
+
+# === 8. INTEGRATED ===
+print("\n=== 8. INTEGRATED ===")
+save("08a-Integrated-TariffSpread-RevenueElasticity.json",
+     [make_pam_loan("LOAN-INT-TSRE-01", 620000, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-INT-TSRE-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "INTEGRATED TariffSpread+RevenueElasticity: Revenue -38% (σ=3.8), spread +100bps, SOFR spikes.")
+save("08b-Integrated-AllFactors-WorstCase.json",
+     [make_pam_loan("LOAN-INT-ALL-01", 1200000, 0.0875, "USD_SOFR_FX", spread=0.035),
+      make_swppv_contract("HEDGE-INT-ALL-01", 960000, 0.052, 0.0425, "USD_SOFR_FX"),
+      make_pam_loan("LOAN-INT-PORT-01", 200000, 0.075, "USD_SOFR_FX", spread=0.030,
+                    maturity="2027-03-01T00:00:00")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "INTEGRATED ALL FACTORS: $1.2M loan + $960K hedge + $200K port facility. FX peak 6.0%.")
+save("08c-Integrated-ModerateScenario.json",
+     [make_pam_loan("LOAN-INT-MOD-01", 1000000, 0.070, "USD_SOFR_MOD", spread=0.025),
+      make_swppv_contract("HEDGE-INT-MOD-01", 650000, 0.045, 0.0425, "USD_SOFR_MOD")],
+     [make_rf_data("USD_SOFR_MOD", SOFR_MODERATE)],
+     "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%.")
+
+print(f"\n{'='*60}\nGENERATION COMPLETE\nOutput: {OUTPUT_DIR}\nEndpoint: {ACTUS_URL}\n{'='*60}")
+ + totalIP.toFixed(2));",
+        "    console.log('='.repeat(64));",
+        "});"
+    ]
 
 
 def _test_script_swaps(title):
@@ -184,10 +543,188 @@ def _test_script_swaps(title):
         "        var ipSum = 0;",
         "        legs[l].filter(function(e){return e.type==='IP';}).forEach(function(e){ ipSum+=e.payoff; });",
         "        var role = l.indexOf('leg1')>=0||l.indexOf('fixed')>=0 ? 'FIXED' : 'FLOAT';",
-        "        console.log('  ' + role + ' (' + l + '): IP=' + ipSum.toFixed(2));",
+        "        console.log('  ' + role + ' (' + l + '): IP=
+
+
+# === 1. TARIFF SPREAD ===
+print("\n=== 1. TARIFF SPREAD ===")
+save("01a-SWPPV-TariffSpread-Baseline.json",
+     [make_swppv_contract("SWPPV-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV TariffSpread BASELINE: No tariff. 70% hedge ($700K). Fixed 4.2%, receive SOFR easing 4.25%→3.5%. Scenario A.")
+save("01b-SWPPV-TariffSpread-Stressed.json",
+     [make_swppv_contract("SWPPV-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV TariffSpread STRESSED: 50% tariff. Fixed 4.8% locked before blow-out. SOFR spikes 4.25%→5.5%. Scenario C.")
+save("01c-SWAPS-TariffSpread-Baseline.json",
+     [make_swaps_contract("SWAPS-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS TariffSpread BASELINE: Two-leg structure. Fixed leg 4.2%, Float leg SOFR.")
+save("01d-SWAPS-TariffSpread-Stressed.json",
+     [make_swaps_contract("SWAPS-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.")
+save("01e-Portfolio-TariffSpread-LoanPlusHedge.json",
+     [make_pam_loan("LOAN-TS-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+      make_swppv_contract("HEDGE-TS-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves ~$35K.")
+
+# === 2. REVENUE ELASTICITY (GTAP Armington) ===
+print("\n=== 2. REVENUE ELASTICITY ===")
+save("02a-SWPPV-RevenueElasticity-Baseline.json",
+     [make_swppv_contract("SWPPV-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV RevenueElasticity BASELINE: Full revenue, full $700K hedge. Textiles σ=3.8.")
+save("02b-SWPPV-RevenueElasticity-Stressed.json",
+     [make_swppv_contract("SWPPV-RE-ST-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV RevenueElasticity STRESSED: Textiles σ=3.8, 50% tariff → 38% revenue drop. Hedge right-sized to $434K.")
+save("02c-SWAPS-RevenueElasticity-Baseline.json",
+     [make_swaps_contract("SWAPS-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS RevenueElasticity BASELINE: Full $700K two-leg structure.")
+save("02d-SWAPS-RevenueElasticity-Electronics.json",
+     [make_swaps_contract("SWAPS-RE-ELE-01", 150000, 0.052, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS RevenueElasticity ELECTRONICS: σ=8.1. 60% tariff → near-total collapse. $150K hedge. Survival mode.")
+
+# === 3. PORT CONGESTION ===
+print("\n=== 3. PORT CONGESTION ===")
+save("03a-SWPPV-PortCongestion-Baseline.json",
+     [make_swppv_contract("SWPPV-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV PortCongestion BASELINE: Normal 4-day port dwell.")
+save("03b-SWPPV-PortCongestion-Stressed.json",
+     [make_swppv_contract("SWPPV-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWPPV PortCongestion STRESSED: 12-day dwell, SOFR+50bps logistics spread. ~$15K/shipment extra.")
+save("03c-SWAPS-PortCongestion-Baseline.json",
+     [make_swaps_contract("SWAPS-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS PortCongestion BASELINE: Two-leg swap, no congestion.")
+save("03d-SWAPS-PortCongestion-Stressed.json",
+     [make_swaps_contract("SWAPS-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWAPS PortCongestion STRESSED: Float leg SOFR+50bps logistics spread.")
+
+# === 4. FX-TARIFF CORRELATION ===
+print("\n=== 4. FX-TARIFF CORRELATION ===")
+save("04a-SWPPV-FXTariffCorrelation-Baseline.json",
+     [make_swppv_contract("SWPPV-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV FXTariffCorrelation BASELINE: No FX stress.")
+save("04b-SWPPV-FXTariffCorrelation-Stressed.json",
+     [make_swppv_contract("SWPPV-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWPPV FXTariffCorrelation STRESSED: INR -12%, SOFR peaks 6.0%. Fixed 5.0%.")
+save("04c-SWAPS-FXTariffCorrelation-Baseline.json",
+     [make_swaps_contract("SWAPS-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS FXTariffCorrelation BASELINE: Two-leg swap, no FX stress.")
+save("04d-SWAPS-FXTariffCorrelation-Stressed.json",
+     [make_swaps_contract("SWAPS-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6.0%.")
+
+# === 5. HEDGE EFFECTIVENESS ===
+print("\n=== 5. HEDGE EFFECTIVENESS ===")
+for ratio, pct in [(0.30, "30pct"), (0.50, "50pct"), (0.70, "70pct"), (0.80, "80pct")]:
+    n = int(1000000 * ratio)
+    save(f"05a-SWPPV-HedgeEffectiveness-{pct}.json",
+         [make_swppv_contract(f"SWPPV-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWPPV HedgeEffectiveness {pct}: {int(ratio*100)}% hedge = ${n:,}. Scenario C.")
+    save(f"05b-SWAPS-HedgeEffectiveness-{pct}.json",
+         [make_swaps_contract(f"SWAPS-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWAPS HedgeEffectiveness {pct}: Two-leg, {int(ratio*100)}% hedge.")
+for ratio, pct, label in [(0.30, "30pct", "Marine-Conservative"),
+                           (0.70, "70pct", "Textiles-Standard"),
+                           (0.80, "80pct", "Gems-Aggressive")]:
+    n = int(1000000 * ratio)
+    save(f"05c-Portfolio-HedgeEffectiveness-{pct}-{label}.json",
+         [make_pam_loan("LOAN-HE-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+          make_swppv_contract(f"HEDGE-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {label}: $1M loan + ${n:,} SWPPV ({int(ratio*100)}%).")
+
+# === 6. WORKING CAPITAL STRESS ===
+print("\n=== 6. WORKING CAPITAL STRESS ===")
+IWC = 1200000; IH = 840000
+save("06a-SWPPV-WorkingCapitalStress-Baseline.json",
+     [make_swppv_contract("SWPPV-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV WorkingCapitalStress BASELINE: Normal $1M WC, $700K hedge.")
+save("06b-SWPPV-WorkingCapitalStress-Stressed.json",
+     [make_swppv_contract("SWPPV-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV WorkingCapitalStress STRESSED: WC +20% to $1.2M. $840K hedge at 5.0%.")
+save("06c-SWAPS-WorkingCapitalStress-Baseline.json",
+     [make_swaps_contract("SWAPS-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS WorkingCapitalStress BASELINE: Two-leg swap, normal WC.")
+save("06d-SWAPS-WorkingCapitalStress-Stressed.json",
+     [make_swaps_contract("SWAPS-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS WorkingCapitalStress STRESSED: Two-leg, increased WC.")
+save("06e-Portfolio-WorkingCapitalStress-Full.json",
+     [make_pam_loan("LOAN-WC-01", IWC, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-WC-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1.2M loan (SOFR+300bps) + $840K hedge. The CFO Playbook 'squeeze'.")
+
+# === 7. COMMODITY CORRIDORS ===
+print("\n=== 7. COMMODITY CORRIDORS ===")
+corridors = [
+    {"name": "IN-Textiles", "sigma": 3.8, "hr": 0.80, "fr": 0.050, "sp": 0.025, "n": 1000000,
+     "d": "Indian Textiles (Tirupur). σ=3.8. Hedge 80%. 50% tariff → 30-50% decline."},
+    {"name": "IN-Gems", "sigma": 3.8, "hr": 0.85, "fr": 0.052, "sp": 0.030, "n": 2000000,
+     "d": "Indian Gems (Surat). US=60% exports. Hedge 80-90%. Extreme concentration."},
+    {"name": "IN-Marine", "sigma": 1.3, "hr": 0.55, "fr": 0.044, "sp": 0.020, "n": 500000,
+     "d": "Indian Marine/Shrimp. σ=1.3 LOW. Hedge 50-60%. Natural stickiness."},
+    {"name": "CN-Electronics", "sigma": 8.1, "hr": 0.90, "fr": 0.055, "sp": 0.035, "n": 5000000,
+     "d": "Chinese Electronics (Shenzhen). σ=8.1 VERY HIGH. Hedge 90%+. Survival mode."},
+    {"name": "MX-AutoParts", "sigma": 2.8, "hr": 0.65, "fr": 0.046, "sp": 0.022, "n": 3000000,
+     "d": "Mexican Auto Parts. σ=2.8 MODERATE. Hedge 60-70%. USMCA leverage."},
+]
+for c in corridors:
+    hn = int(c["n"] * c["hr"]); t = c["name"].replace("-","").replace(" ","")
+    save(f"07-SWPPV-Corridor-{c['name']}.json",
+         [make_swppv_contract(f"SWPPV-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWPPV {c['name']}: {c['d']}")
+    save(f"07-SWAPS-Corridor-{c['name']}.json",
+         [make_swaps_contract(f"SWAPS-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWAPS {c['name']}: {c['d']}")
+    save(f"07-Portfolio-Corridor-{c['name']}.json",
+         [make_pam_loan(f"LOAN-{t}-01", c["n"], 0.0425+c["sp"], "USD_SOFR_STRESS", spread=c["sp"]),
+          make_swppv_contract(f"HEDGE-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {c['name']}: ${c['n']:,} loan + ${hn:,} hedge ({int(c['hr']*100)}%). {c['d']}")
+
+# === 8. INTEGRATED ===
+print("\n=== 8. INTEGRATED ===")
+save("08a-Integrated-TariffSpread-RevenueElasticity.json",
+     [make_pam_loan("LOAN-INT-TSRE-01", 620000, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-INT-TSRE-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "INTEGRATED TariffSpread+RevenueElasticity: Revenue -38% (σ=3.8), spread +100bps, SOFR spikes.")
+save("08b-Integrated-AllFactors-WorstCase.json",
+     [make_pam_loan("LOAN-INT-ALL-01", 1200000, 0.0875, "USD_SOFR_FX", spread=0.035),
+      make_swppv_contract("HEDGE-INT-ALL-01", 960000, 0.052, 0.0425, "USD_SOFR_FX"),
+      make_pam_loan("LOAN-INT-PORT-01", 200000, 0.075, "USD_SOFR_FX", spread=0.030,
+                    maturity="2027-03-01T00:00:00")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "INTEGRATED ALL FACTORS: $1.2M loan + $960K hedge + $200K port facility. FX peak 6.0%.")
+save("08c-Integrated-ModerateScenario.json",
+     [make_pam_loan("LOAN-INT-MOD-01", 1000000, 0.070, "USD_SOFR_MOD", spread=0.025),
+      make_swppv_contract("HEDGE-INT-MOD-01", 650000, 0.045, 0.0425, "USD_SOFR_MOD")],
+     [make_rf_data("USD_SOFR_MOD", SOFR_MODERATE)],
+     "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%.")
+
+print(f"\n{'='*60}\nGENERATION COMPLETE\nOutput: {OUTPUT_DIR}\nEndpoint: {ACTUS_URL}\n{'='*60}")
+ + ipSum.toFixed(2));",
         "    });",
-        "    console.log('='.repeat(64));",
-        "});"
     ]
     # Insert before last 2 lines (console.log('='.repeat(64)); and });)
     return base[:-2] + leg_lines + base[-2:]
@@ -213,9 +750,369 @@ def _test_script_portfolio(title):
         "        var totalIP = 0;",
         "        events.filter(function(e){return e.type==='IP';}).forEach(function(e){",
         "            totalIP += e.payoff;",
-        "            console.log('  ' + e.time.substring(0,10) + ' IP payoff=' + e.payoff.toFixed(2) + ' rate=' + (e.nominalRate||0).toFixed(6));",
+        "            console.log('  ' + e.time.substring(0,10) + ' IP payoff=
+
+
+# === 1. TARIFF SPREAD ===
+print("\n=== 1. TARIFF SPREAD ===")
+save("01a-SWPPV-TariffSpread-Baseline.json",
+     [make_swppv_contract("SWPPV-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV TariffSpread BASELINE: No tariff. 70% hedge ($700K). Fixed 4.2%, receive SOFR easing 4.25%→3.5%. Scenario A.")
+save("01b-SWPPV-TariffSpread-Stressed.json",
+     [make_swppv_contract("SWPPV-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV TariffSpread STRESSED: 50% tariff. Fixed 4.8% locked before blow-out. SOFR spikes 4.25%→5.5%. Scenario C.")
+save("01c-SWAPS-TariffSpread-Baseline.json",
+     [make_swaps_contract("SWAPS-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS TariffSpread BASELINE: Two-leg structure. Fixed leg 4.2%, Float leg SOFR.")
+save("01d-SWAPS-TariffSpread-Stressed.json",
+     [make_swaps_contract("SWAPS-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.")
+save("01e-Portfolio-TariffSpread-LoanPlusHedge.json",
+     [make_pam_loan("LOAN-TS-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+      make_swppv_contract("HEDGE-TS-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves ~$35K.")
+
+# === 2. REVENUE ELASTICITY (GTAP Armington) ===
+print("\n=== 2. REVENUE ELASTICITY ===")
+save("02a-SWPPV-RevenueElasticity-Baseline.json",
+     [make_swppv_contract("SWPPV-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV RevenueElasticity BASELINE: Full revenue, full $700K hedge. Textiles σ=3.8.")
+save("02b-SWPPV-RevenueElasticity-Stressed.json",
+     [make_swppv_contract("SWPPV-RE-ST-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV RevenueElasticity STRESSED: Textiles σ=3.8, 50% tariff → 38% revenue drop. Hedge right-sized to $434K.")
+save("02c-SWAPS-RevenueElasticity-Baseline.json",
+     [make_swaps_contract("SWAPS-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS RevenueElasticity BASELINE: Full $700K two-leg structure.")
+save("02d-SWAPS-RevenueElasticity-Electronics.json",
+     [make_swaps_contract("SWAPS-RE-ELE-01", 150000, 0.052, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS RevenueElasticity ELECTRONICS: σ=8.1. 60% tariff → near-total collapse. $150K hedge. Survival mode.")
+
+# === 3. PORT CONGESTION ===
+print("\n=== 3. PORT CONGESTION ===")
+save("03a-SWPPV-PortCongestion-Baseline.json",
+     [make_swppv_contract("SWPPV-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV PortCongestion BASELINE: Normal 4-day port dwell.")
+save("03b-SWPPV-PortCongestion-Stressed.json",
+     [make_swppv_contract("SWPPV-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWPPV PortCongestion STRESSED: 12-day dwell, SOFR+50bps logistics spread. ~$15K/shipment extra.")
+save("03c-SWAPS-PortCongestion-Baseline.json",
+     [make_swaps_contract("SWAPS-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS PortCongestion BASELINE: Two-leg swap, no congestion.")
+save("03d-SWAPS-PortCongestion-Stressed.json",
+     [make_swaps_contract("SWAPS-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWAPS PortCongestion STRESSED: Float leg SOFR+50bps logistics spread.")
+
+# === 4. FX-TARIFF CORRELATION ===
+print("\n=== 4. FX-TARIFF CORRELATION ===")
+save("04a-SWPPV-FXTariffCorrelation-Baseline.json",
+     [make_swppv_contract("SWPPV-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV FXTariffCorrelation BASELINE: No FX stress.")
+save("04b-SWPPV-FXTariffCorrelation-Stressed.json",
+     [make_swppv_contract("SWPPV-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWPPV FXTariffCorrelation STRESSED: INR -12%, SOFR peaks 6.0%. Fixed 5.0%.")
+save("04c-SWAPS-FXTariffCorrelation-Baseline.json",
+     [make_swaps_contract("SWAPS-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS FXTariffCorrelation BASELINE: Two-leg swap, no FX stress.")
+save("04d-SWAPS-FXTariffCorrelation-Stressed.json",
+     [make_swaps_contract("SWAPS-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6.0%.")
+
+# === 5. HEDGE EFFECTIVENESS ===
+print("\n=== 5. HEDGE EFFECTIVENESS ===")
+for ratio, pct in [(0.30, "30pct"), (0.50, "50pct"), (0.70, "70pct"), (0.80, "80pct")]:
+    n = int(1000000 * ratio)
+    save(f"05a-SWPPV-HedgeEffectiveness-{pct}.json",
+         [make_swppv_contract(f"SWPPV-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWPPV HedgeEffectiveness {pct}: {int(ratio*100)}% hedge = ${n:,}. Scenario C.")
+    save(f"05b-SWAPS-HedgeEffectiveness-{pct}.json",
+         [make_swaps_contract(f"SWAPS-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWAPS HedgeEffectiveness {pct}: Two-leg, {int(ratio*100)}% hedge.")
+for ratio, pct, label in [(0.30, "30pct", "Marine-Conservative"),
+                           (0.70, "70pct", "Textiles-Standard"),
+                           (0.80, "80pct", "Gems-Aggressive")]:
+    n = int(1000000 * ratio)
+    save(f"05c-Portfolio-HedgeEffectiveness-{pct}-{label}.json",
+         [make_pam_loan("LOAN-HE-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+          make_swppv_contract(f"HEDGE-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {label}: $1M loan + ${n:,} SWPPV ({int(ratio*100)}%).")
+
+# === 6. WORKING CAPITAL STRESS ===
+print("\n=== 6. WORKING CAPITAL STRESS ===")
+IWC = 1200000; IH = 840000
+save("06a-SWPPV-WorkingCapitalStress-Baseline.json",
+     [make_swppv_contract("SWPPV-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV WorkingCapitalStress BASELINE: Normal $1M WC, $700K hedge.")
+save("06b-SWPPV-WorkingCapitalStress-Stressed.json",
+     [make_swppv_contract("SWPPV-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV WorkingCapitalStress STRESSED: WC +20% to $1.2M. $840K hedge at 5.0%.")
+save("06c-SWAPS-WorkingCapitalStress-Baseline.json",
+     [make_swaps_contract("SWAPS-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS WorkingCapitalStress BASELINE: Two-leg swap, normal WC.")
+save("06d-SWAPS-WorkingCapitalStress-Stressed.json",
+     [make_swaps_contract("SWAPS-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS WorkingCapitalStress STRESSED: Two-leg, increased WC.")
+save("06e-Portfolio-WorkingCapitalStress-Full.json",
+     [make_pam_loan("LOAN-WC-01", IWC, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-WC-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1.2M loan (SOFR+300bps) + $840K hedge. The CFO Playbook 'squeeze'.")
+
+# === 7. COMMODITY CORRIDORS ===
+print("\n=== 7. COMMODITY CORRIDORS ===")
+corridors = [
+    {"name": "IN-Textiles", "sigma": 3.8, "hr": 0.80, "fr": 0.050, "sp": 0.025, "n": 1000000,
+     "d": "Indian Textiles (Tirupur). σ=3.8. Hedge 80%. 50% tariff → 30-50% decline."},
+    {"name": "IN-Gems", "sigma": 3.8, "hr": 0.85, "fr": 0.052, "sp": 0.030, "n": 2000000,
+     "d": "Indian Gems (Surat). US=60% exports. Hedge 80-90%. Extreme concentration."},
+    {"name": "IN-Marine", "sigma": 1.3, "hr": 0.55, "fr": 0.044, "sp": 0.020, "n": 500000,
+     "d": "Indian Marine/Shrimp. σ=1.3 LOW. Hedge 50-60%. Natural stickiness."},
+    {"name": "CN-Electronics", "sigma": 8.1, "hr": 0.90, "fr": 0.055, "sp": 0.035, "n": 5000000,
+     "d": "Chinese Electronics (Shenzhen). σ=8.1 VERY HIGH. Hedge 90%+. Survival mode."},
+    {"name": "MX-AutoParts", "sigma": 2.8, "hr": 0.65, "fr": 0.046, "sp": 0.022, "n": 3000000,
+     "d": "Mexican Auto Parts. σ=2.8 MODERATE. Hedge 60-70%. USMCA leverage."},
+]
+for c in corridors:
+    hn = int(c["n"] * c["hr"]); t = c["name"].replace("-","").replace(" ","")
+    save(f"07-SWPPV-Corridor-{c['name']}.json",
+         [make_swppv_contract(f"SWPPV-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWPPV {c['name']}: {c['d']}")
+    save(f"07-SWAPS-Corridor-{c['name']}.json",
+         [make_swaps_contract(f"SWAPS-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWAPS {c['name']}: {c['d']}")
+    save(f"07-Portfolio-Corridor-{c['name']}.json",
+         [make_pam_loan(f"LOAN-{t}-01", c["n"], 0.0425+c["sp"], "USD_SOFR_STRESS", spread=c["sp"]),
+          make_swppv_contract(f"HEDGE-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {c['name']}: ${c['n']:,} loan + ${hn:,} hedge ({int(c['hr']*100)}%). {c['d']}")
+
+# === 8. INTEGRATED ===
+print("\n=== 8. INTEGRATED ===")
+save("08a-Integrated-TariffSpread-RevenueElasticity.json",
+     [make_pam_loan("LOAN-INT-TSRE-01", 620000, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-INT-TSRE-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "INTEGRATED TariffSpread+RevenueElasticity: Revenue -38% (σ=3.8), spread +100bps, SOFR spikes.")
+save("08b-Integrated-AllFactors-WorstCase.json",
+     [make_pam_loan("LOAN-INT-ALL-01", 1200000, 0.0875, "USD_SOFR_FX", spread=0.035),
+      make_swppv_contract("HEDGE-INT-ALL-01", 960000, 0.052, 0.0425, "USD_SOFR_FX"),
+      make_pam_loan("LOAN-INT-PORT-01", 200000, 0.075, "USD_SOFR_FX", spread=0.030,
+                    maturity="2027-03-01T00:00:00")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "INTEGRATED ALL FACTORS: $1.2M loan + $960K hedge + $200K port facility. FX peak 6.0%.")
+save("08c-Integrated-ModerateScenario.json",
+     [make_pam_loan("LOAN-INT-MOD-01", 1000000, 0.070, "USD_SOFR_MOD", spread=0.025),
+      make_swppv_contract("HEDGE-INT-MOD-01", 650000, 0.045, 0.0425, "USD_SOFR_MOD")],
+     [make_rf_data("USD_SOFR_MOD", SOFR_MODERATE)],
+     "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%.")
+
+print(f"\n{'='*60}\nGENERATION COMPLETE\nOutput: {OUTPUT_DIR}\nEndpoint: {ACTUS_URL}\n{'='*60}")
+ + e.payoff.toFixed(2) + ' rate=' + (e.nominalRate||0).toFixed(6));",
         "        });",
-        "        console.log('  TOTAL IP: ' + totalIP.toFixed(2));",
+        "        console.log('  TOTAL IP: 
+
+
+# === 1. TARIFF SPREAD ===
+print("\n=== 1. TARIFF SPREAD ===")
+save("01a-SWPPV-TariffSpread-Baseline.json",
+     [make_swppv_contract("SWPPV-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV TariffSpread BASELINE: No tariff. 70% hedge ($700K). Fixed 4.2%, receive SOFR easing 4.25%→3.5%. Scenario A.")
+save("01b-SWPPV-TariffSpread-Stressed.json",
+     [make_swppv_contract("SWPPV-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV TariffSpread STRESSED: 50% tariff. Fixed 4.8% locked before blow-out. SOFR spikes 4.25%→5.5%. Scenario C.")
+save("01c-SWAPS-TariffSpread-Baseline.json",
+     [make_swaps_contract("SWAPS-TS-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS TariffSpread BASELINE: Two-leg structure. Fixed leg 4.2%, Float leg SOFR.")
+save("01d-SWAPS-TariffSpread-Stressed.json",
+     [make_swaps_contract("SWAPS-TS-ST-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.")
+save("01e-Portfolio-TariffSpread-LoanPlusHedge.json",
+     [make_pam_loan("LOAN-TS-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+      make_swppv_contract("HEDGE-TS-01", 700000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1M PAM loan (SOFR+250bps) + $700K SWPPV hedge (fixed 4.8%). CFO Playbook: swap saves ~$35K.")
+
+# === 2. REVENUE ELASTICITY (GTAP Armington) ===
+print("\n=== 2. REVENUE ELASTICITY ===")
+save("02a-SWPPV-RevenueElasticity-Baseline.json",
+     [make_swppv_contract("SWPPV-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV RevenueElasticity BASELINE: Full revenue, full $700K hedge. Textiles σ=3.8.")
+save("02b-SWPPV-RevenueElasticity-Stressed.json",
+     [make_swppv_contract("SWPPV-RE-ST-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV RevenueElasticity STRESSED: Textiles σ=3.8, 50% tariff → 38% revenue drop. Hedge right-sized to $434K.")
+save("02c-SWAPS-RevenueElasticity-Baseline.json",
+     [make_swaps_contract("SWAPS-RE-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS RevenueElasticity BASELINE: Full $700K two-leg structure.")
+save("02d-SWAPS-RevenueElasticity-Electronics.json",
+     [make_swaps_contract("SWAPS-RE-ELE-01", 150000, 0.052, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS RevenueElasticity ELECTRONICS: σ=8.1. 60% tariff → near-total collapse. $150K hedge. Survival mode.")
+
+# === 3. PORT CONGESTION ===
+print("\n=== 3. PORT CONGESTION ===")
+save("03a-SWPPV-PortCongestion-Baseline.json",
+     [make_swppv_contract("SWPPV-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV PortCongestion BASELINE: Normal 4-day port dwell.")
+save("03b-SWPPV-PortCongestion-Stressed.json",
+     [make_swppv_contract("SWPPV-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWPPV PortCongestion STRESSED: 12-day dwell, SOFR+50bps logistics spread. ~$15K/shipment extra.")
+save("03c-SWAPS-PortCongestion-Baseline.json",
+     [make_swaps_contract("SWAPS-PC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS PortCongestion BASELINE: Two-leg swap, no congestion.")
+save("03d-SWAPS-PortCongestion-Stressed.json",
+     [make_swaps_contract("SWAPS-PC-ST-01", 700000, 0.044, 0.0425, "USD_SOFR_PORT", spread=0.005)],
+     [make_rf_data("USD_SOFR_PORT", SOFR_PORT_STRESS)],
+     "SWAPS PortCongestion STRESSED: Float leg SOFR+50bps logistics spread.")
+
+# === 4. FX-TARIFF CORRELATION ===
+print("\n=== 4. FX-TARIFF CORRELATION ===")
+save("04a-SWPPV-FXTariffCorrelation-Baseline.json",
+     [make_swppv_contract("SWPPV-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV FXTariffCorrelation BASELINE: No FX stress.")
+save("04b-SWPPV-FXTariffCorrelation-Stressed.json",
+     [make_swppv_contract("SWPPV-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWPPV FXTariffCorrelation STRESSED: INR -12%, SOFR peaks 6.0%. Fixed 5.0%.")
+save("04c-SWAPS-FXTariffCorrelation-Baseline.json",
+     [make_swaps_contract("SWAPS-FX-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS FXTariffCorrelation BASELINE: Two-leg swap, no FX stress.")
+save("04d-SWAPS-FXTariffCorrelation-Stressed.json",
+     [make_swaps_contract("SWAPS-FX-ST-01", 700000, 0.050, 0.0425, "USD_SOFR_FX")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "SWAPS FXTariffCorrelation STRESSED: FX-amplified, peaks 6.0%.")
+
+# === 5. HEDGE EFFECTIVENESS ===
+print("\n=== 5. HEDGE EFFECTIVENESS ===")
+for ratio, pct in [(0.30, "30pct"), (0.50, "50pct"), (0.70, "70pct"), (0.80, "80pct")]:
+    n = int(1000000 * ratio)
+    save(f"05a-SWPPV-HedgeEffectiveness-{pct}.json",
+         [make_swppv_contract(f"SWPPV-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWPPV HedgeEffectiveness {pct}: {int(ratio*100)}% hedge = ${n:,}. Scenario C.")
+    save(f"05b-SWAPS-HedgeEffectiveness-{pct}.json",
+         [make_swaps_contract(f"SWAPS-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"SWAPS HedgeEffectiveness {pct}: Two-leg, {int(ratio*100)}% hedge.")
+for ratio, pct, label in [(0.30, "30pct", "Marine-Conservative"),
+                           (0.70, "70pct", "Textiles-Standard"),
+                           (0.80, "80pct", "Gems-Aggressive")]:
+    n = int(1000000 * ratio)
+    save(f"05c-Portfolio-HedgeEffectiveness-{pct}-{label}.json",
+         [make_pam_loan("LOAN-HE-01", 1000000, 0.0675, "USD_SOFR_STRESS", spread=0.025),
+          make_swppv_contract(f"HEDGE-HE-{pct}-01", n, 0.048, 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {label}: $1M loan + ${n:,} SWPPV ({int(ratio*100)}%).")
+
+# === 6. WORKING CAPITAL STRESS ===
+print("\n=== 6. WORKING CAPITAL STRESS ===")
+IWC = 1200000; IH = 840000
+save("06a-SWPPV-WorkingCapitalStress-Baseline.json",
+     [make_swppv_contract("SWPPV-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWPPV WorkingCapitalStress BASELINE: Normal $1M WC, $700K hedge.")
+save("06b-SWPPV-WorkingCapitalStress-Stressed.json",
+     [make_swppv_contract("SWPPV-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWPPV WorkingCapitalStress STRESSED: WC +20% to $1.2M. $840K hedge at 5.0%.")
+save("06c-SWAPS-WorkingCapitalStress-Baseline.json",
+     [make_swaps_contract("SWAPS-WC-BL-01", 700000, 0.042, 0.0425, "USD_SOFR")],
+     [make_rf_data("USD_SOFR", SOFR_BASELINE)],
+     "SWAPS WorkingCapitalStress BASELINE: Two-leg swap, normal WC.")
+save("06d-SWAPS-WorkingCapitalStress-Stressed.json",
+     [make_swaps_contract("SWAPS-WC-ST-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "SWAPS WorkingCapitalStress STRESSED: Two-leg, increased WC.")
+save("06e-Portfolio-WorkingCapitalStress-Full.json",
+     [make_pam_loan("LOAN-WC-01", IWC, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-WC-01", IH, 0.050, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "PORTFOLIO: $1.2M loan (SOFR+300bps) + $840K hedge. The CFO Playbook 'squeeze'.")
+
+# === 7. COMMODITY CORRIDORS ===
+print("\n=== 7. COMMODITY CORRIDORS ===")
+corridors = [
+    {"name": "IN-Textiles", "sigma": 3.8, "hr": 0.80, "fr": 0.050, "sp": 0.025, "n": 1000000,
+     "d": "Indian Textiles (Tirupur). σ=3.8. Hedge 80%. 50% tariff → 30-50% decline."},
+    {"name": "IN-Gems", "sigma": 3.8, "hr": 0.85, "fr": 0.052, "sp": 0.030, "n": 2000000,
+     "d": "Indian Gems (Surat). US=60% exports. Hedge 80-90%. Extreme concentration."},
+    {"name": "IN-Marine", "sigma": 1.3, "hr": 0.55, "fr": 0.044, "sp": 0.020, "n": 500000,
+     "d": "Indian Marine/Shrimp. σ=1.3 LOW. Hedge 50-60%. Natural stickiness."},
+    {"name": "CN-Electronics", "sigma": 8.1, "hr": 0.90, "fr": 0.055, "sp": 0.035, "n": 5000000,
+     "d": "Chinese Electronics (Shenzhen). σ=8.1 VERY HIGH. Hedge 90%+. Survival mode."},
+    {"name": "MX-AutoParts", "sigma": 2.8, "hr": 0.65, "fr": 0.046, "sp": 0.022, "n": 3000000,
+     "d": "Mexican Auto Parts. σ=2.8 MODERATE. Hedge 60-70%. USMCA leverage."},
+]
+for c in corridors:
+    hn = int(c["n"] * c["hr"]); t = c["name"].replace("-","").replace(" ","")
+    save(f"07-SWPPV-Corridor-{c['name']}.json",
+         [make_swppv_contract(f"SWPPV-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWPPV {c['name']}: {c['d']}")
+    save(f"07-SWAPS-Corridor-{c['name']}.json",
+         [make_swaps_contract(f"SWAPS-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)], f"SWAPS {c['name']}: {c['d']}")
+    save(f"07-Portfolio-Corridor-{c['name']}.json",
+         [make_pam_loan(f"LOAN-{t}-01", c["n"], 0.0425+c["sp"], "USD_SOFR_STRESS", spread=c["sp"]),
+          make_swppv_contract(f"HEDGE-{t}-01", hn, c["fr"], 0.0425, "USD_SOFR_STRESS")],
+         [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+         f"PORTFOLIO {c['name']}: ${c['n']:,} loan + ${hn:,} hedge ({int(c['hr']*100)}%). {c['d']}")
+
+# === 8. INTEGRATED ===
+print("\n=== 8. INTEGRATED ===")
+save("08a-Integrated-TariffSpread-RevenueElasticity.json",
+     [make_pam_loan("LOAN-INT-TSRE-01", 620000, 0.0725, "USD_SOFR_STRESS", spread=0.030),
+      make_swppv_contract("HEDGE-INT-TSRE-01", 434000, 0.048, 0.0425, "USD_SOFR_STRESS")],
+     [make_rf_data("USD_SOFR_STRESS", SOFR_SEVERE)],
+     "INTEGRATED TariffSpread+RevenueElasticity: Revenue -38% (σ=3.8), spread +100bps, SOFR spikes.")
+save("08b-Integrated-AllFactors-WorstCase.json",
+     [make_pam_loan("LOAN-INT-ALL-01", 1200000, 0.0875, "USD_SOFR_FX", spread=0.035),
+      make_swppv_contract("HEDGE-INT-ALL-01", 960000, 0.052, 0.0425, "USD_SOFR_FX"),
+      make_pam_loan("LOAN-INT-PORT-01", 200000, 0.075, "USD_SOFR_FX", spread=0.030,
+                    maturity="2027-03-01T00:00:00")],
+     [make_rf_data("USD_SOFR_FX", SOFR_FX_AMPLIFIED)],
+     "INTEGRATED ALL FACTORS: $1.2M loan + $960K hedge + $200K port facility. FX peak 6.0%.")
+save("08c-Integrated-ModerateScenario.json",
+     [make_pam_loan("LOAN-INT-MOD-01", 1000000, 0.070, "USD_SOFR_MOD", spread=0.025),
+      make_swppv_contract("HEDGE-INT-MOD-01", 650000, 0.045, 0.0425, "USD_SOFR_MOD")],
+     [make_rf_data("USD_SOFR_MOD", SOFR_MODERATE)],
+     "INTEGRATED Moderate (Scenario B): 26% tariff. $1M loan + $650K hedge at 4.5%.")
+
+print(f"\n{'='*60}\nGENERATION COMPLETE\nOutput: {OUTPUT_DIR}\nEndpoint: {ACTUS_URL}\n{'='*60}")
+ + totalIP.toFixed(2));",
         "    });",
         "    console.log('='.repeat(64));",
         "});"
@@ -278,7 +1175,6 @@ def save(fn, contracts, rfs, desc=""):
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(collection, f, indent=2, ensure_ascii=True)
     print(f"  Created: {fn} (Postman v2.1.0)")
-
 
 
 # === 1. TARIFF SPREAD ===

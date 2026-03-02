@@ -2,12 +2,12 @@
   "info": {
     "_postman_id": "sc3-01d",
     "name": "01d-SWAPS-TariffSpread-Stressed",
-    "description": "SWAPS TariffSpread STRESSED: Fixed 4.8%, Float SOFR_STRESS. Tariff-driven rate spike.",
+    "description": "SWAPS TariffSpread STRESSED: Two-leg (FIL/SEL). Fixed 4.8%, Float SOFR stressed to 5.5%.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "Run 01d-SWAPS-TariffSpread-Stressed",
+      "name": "Run SWAPS Stressed",
       "request": {
         "method": "POST",
         "header": [
@@ -46,7 +46,7 @@
               "    pm.response.to.have.status(200);",
               "    var data = pm.response.json();",
               "    console.log('='.repeat(64));",
-              "    console.log('SWAPS TariffSpread STRESSED: Fixed 4');",
+              "    console.log('SWAPS TARIFF SPREAD STRESSED (FIL/SEL, 50% Tariff)');",
               "    console.log('='.repeat(64));",
               "    var r = data[0];",
               "    if(r.status !== 'Success'){ console.log('FAILED: ' + (r.statusMessage||'unknown')); return; }",
@@ -60,9 +60,9 @@
               "    console.log('INTEREST PAYMENTS:');",
               "    events.filter(function(e){return e.type==='IP';}).forEach(function(e){",
               "        totalIP += e.payoff;",
-              "        console.log('  ' + e.time.substring(0,10) + '  payoff=' + e.payoff.toFixed(2) + '  rate=' + (e.nominalRate||0).toFixed(6));",
+              "        console.log('  ' + e.time.substring(0,10) + '  payoff=$' + e.payoff.toFixed(2) + '  rate=' + (e.nominalRate||0).toFixed(6));",
               "    });",
-              "    console.log('TOTAL IP: ' + totalIP.toFixed(2));",
+              "    console.log('TOTAL IP: $' + totalIP.toFixed(2));",
               "    console.log('');",
               "    console.log('LEG BREAKDOWN:');",
               "    var legs = {};",
@@ -71,11 +71,9 @@
               "        var ipSum = 0;",
               "        legs[l].filter(function(e){return e.type==='IP';}).forEach(function(e){ ipSum+=e.payoff; });",
               "        var role = l.indexOf('leg1')>=0||l.indexOf('fixed')>=0 ? 'FIXED' : 'FLOAT';",
-              "        console.log('  ' + role + ' (' + l + '): IP=' + ipSum.toFixed(2));",
+              "        console.log('  ' + role + ' (' + l + '): IP=$' + ipSum.toFixed(2));",
               "    });",
               "    console.log('='.repeat(64));",
-              "});",
-              "    console.log('');",
               "});"
             ]
           }
