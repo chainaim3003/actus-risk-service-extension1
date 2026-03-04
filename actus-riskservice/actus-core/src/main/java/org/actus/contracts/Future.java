@@ -45,10 +45,10 @@ public class Future {
         //exercise & settlement
         if(!CommonUtils.isNull(model.getAs("exerciseDate"))){
             events.add(EventFactory.createEvent(model.getAs("exerciseDate"), EventType.XD,model.getAs("currency"), new POF_XD_FUTUR(), new STF_XD_FUTUR(), model.getAs("contractID")));
-            events.add(EventFactory.createEvent(model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(model.<LocalDateTime>getAs("exerciseDate").plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod")))), EventType.STD, model.getAs("currency"), new POF_STD_OPTNS(), new STF_STD_OPTNS(),model.getAs("contractID")));
+            events.add(EventFactory.createEvent(model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(model.<LocalDateTime>getAs("exerciseDate").plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod")))), EventType.STD, model.getAs("currency"), new POF_STD_OPTNS(), new STF_STD_OPTNS(),model.getAs("contractID")));
         } else{
             events.add(EventFactory.createEvent(model.getAs("maturityDate"), EventType.XD,model.getAs("currency"), new POF_XD_FUTUR(), new STF_XD_FUTUR(), model.getAs("contractID")));
-            events.add(EventFactory.createEvent(model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(model.<LocalDateTime>getAs("maturityDate").plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod")))), EventType.STD, model.getAs("currency"), new POF_STD_OPTNS(), new STF_STD_OPTNS(),model.getAs("contractID")));
+            events.add(EventFactory.createEvent(model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(model.<LocalDateTime>getAs("maturityDate").plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod")))), EventType.STD, model.getAs("currency"), new POF_STD_OPTNS(), new STF_STD_OPTNS(),model.getAs("contractID")));
         }
 
         //maturity

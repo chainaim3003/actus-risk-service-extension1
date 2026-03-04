@@ -62,6 +62,15 @@ public class DayCountCalculator {
             case StringUtils.DayCountConvention_28336:
             	this.convention = new TwentyEightThreeThirtySix();
             	break;
+
+            // ========================== NEW CASES ==========================
+            case StringUtils.DayCountConvention_AA365S:
+                this.convention = new ActualThreeSixtyFiveFixedSubDay();
+                break;
+            case StringUtils.DayCountConvention_AA365N:
+                this.convention = new ActualThreeSixtyFiveFixedNano();
+                break;
+            // ===============================================================
         }
     }
 
@@ -80,6 +89,11 @@ public class DayCountCalculator {
      * reference year between startTime and endTime
      */
     public double dayCountFraction(LocalDateTime startTime, LocalDateTime endTime) {
+        // NEW: Bypass toFullHours() for sub-day conventions
+        if (convention instanceof ActualThreeSixtyFiveFixedSubDay
+                || convention instanceof ActualThreeSixtyFiveFixedNano) {
+            return convention.dayCountFraction(startTime, endTime);
+        }
         return convention.dayCountFraction(TimeAdjuster.toFullHours(startTime), TimeAdjuster.toFullHours(endTime));
     }
 }

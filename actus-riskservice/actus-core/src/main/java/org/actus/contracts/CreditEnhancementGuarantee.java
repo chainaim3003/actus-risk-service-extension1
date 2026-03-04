@@ -24,7 +24,6 @@ import org.actus.util.CommonUtils;
 import org.actus.util.CycleUtils;
 
 import java.time.LocalDateTime;
-import java.time.Period;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -54,7 +53,7 @@ public class CreditEnhancementGuarantee {
             if(CommonUtils.isNull(model.getAs("cycleAnchorDateOfFee")) && CommonUtils.isNull(model.getAs("cycleOfFee"))){
                 startDate = null;
             }else if(CommonUtils.isNull(model.getAs("cycleAnchorDateOfFee"))){
-                startDate = model.<LocalDateTime>getAs("purchaseDate").plus(Period.parse(model.getAs("cycleOfFee")));
+                startDate = model.<LocalDateTime>getAs("purchaseDate").plus(CycleUtils.parseTemporalAmount(model.getAs("cycleOfFee") + "L0"));
             }else{
                 startDate = model.getAs("cycleAnchorDateOfFee");
             }
@@ -87,7 +86,7 @@ public class CreditEnhancementGuarantee {
         //exercise
         if(!CommonUtils.isNull(model.getAs("exerciseDate"))){
             events.add(EventFactory.createEvent(model.getAs("exerciseDate"), EventType.XD, model.getAs("currency"), new POF_XD_OPTNS(), new STF_XD_CEG(), model.getAs("contractID")));
-            events.add(EventFactory.createEvent(model.<LocalDateTime>getAs("exerciseDate").plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEG(), new STF_STD_CEG(), model.getAs("businessDayConvention"), model.getAs("contractID")));
+            events.add(EventFactory.createEvent(model.<LocalDateTime>getAs("exerciseDate").plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEG(), new STF_STD_CEG(), model.getAs("businessDayConvention"), model.getAs("contractID")));
         }
         return events;
     }
@@ -199,7 +198,7 @@ public class CreditEnhancementGuarantee {
             ContractEvent ceEvent = ceEvents.get(0);
             events = events.stream().filter(e -> e.eventType() != EventType.MD).collect(Collectors.toCollection(ArrayList::new));
             events.add(EventFactory.createEvent(ceEvent.eventTime(), EventType.XD, model.getAs("currency"), new POF_XD_OPTNS(), new STF_XD_CEG(), model.getAs("contractID")));
-            ContractEvent std = EventFactory.createEvent(ceEvent.eventTime().plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEG(), new STF_STD_CEG(), model.getAs("businessDayConvention"), model.getAs("contractID"));
+            ContractEvent std = EventFactory.createEvent(ceEvent.eventTime().plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEG(), new STF_STD_CEG(), model.getAs("businessDayConvention"), model.getAs("contractID"));
             events.add(std);
         }
         return events;

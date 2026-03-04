@@ -50,7 +50,7 @@ public final class CallMoney {
         if (!CommonUtils.isNull(model.getAs("cycleOfInterestPayment"))) {
             events.addAll(EventFactory.createEvents(
                     ScheduleFactory.createSchedule(
-                            CommonUtils.isNull(model.getAs("cycleAnchorDateOfInterestPayment")) ? model.<LocalDateTime>getAs("initialExchangeDate").plus(CycleUtils.parsePeriod(model.getAs("cycleOfInterestPayment"))) : model.getAs("cycleAnchorDateOfInterestPayment"),
+                            CommonUtils.isNull(model.getAs("cycleAnchorDateOfInterestPayment")) ? model.<LocalDateTime>getAs("initialExchangeDate").plus(CycleUtils.parseTemporalAmount(model.getAs("cycleOfInterestPayment"))) : model.getAs("cycleAnchorDateOfInterestPayment"),
                             maturity,
                             model.getAs("cycleOfInterestPayment"),
                             model.getAs("endOfMonthConvention"),

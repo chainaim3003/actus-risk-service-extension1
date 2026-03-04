@@ -46,7 +46,7 @@ public class CreditEnhancementCollateral {
         //exercise
         if(!CommonUtils.isNull(model.getAs("exerciseDate"))){
             events.add(EventFactory.createEvent(model.getAs("exerciseDate"), EventType.XD, model.getAs("currency"), new POF_XD_OPTNS(), new STF_XD_CEC(), model.getAs("contractID")));
-            events.add(EventFactory.createEvent(model.<LocalDateTime>getAs("exerciseDate").plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEC(), new STF_STD_CEC(), model.getAs("businessDayConvention"), model.getAs("contractID")));
+            events.add(EventFactory.createEvent(model.<LocalDateTime>getAs("exerciseDate").plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEC(), new STF_STD_CEC(), model.getAs("businessDayConvention"), model.getAs("contractID")));
         }
         return events;
     }
@@ -154,7 +154,7 @@ public class CreditEnhancementCollateral {
             ContractEvent ceEvent = ceEvents.get(0);
             events = events.stream().filter(e -> e.eventType() != EventType.MD).collect(Collectors.toCollection(ArrayList::new));
             events.add(EventFactory.createEvent(ceEvent.eventTime(), EventType.XD, model.getAs("currency"), new POF_XD_OPTNS(), new STF_XD_CEC(), model.getAs("contractID")));
-            ContractEvent std = EventFactory.createEvent(ceEvent.eventTime().plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEC(), new STF_STD_CEC(), model.getAs("businessDayConvention"), model.getAs("contractID"));
+            ContractEvent std = EventFactory.createEvent(ceEvent.eventTime().plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod"))), EventType.STD, model.getAs("currency"), new POF_STD_CEC(), new STF_STD_CEC(), model.getAs("businessDayConvention"), model.getAs("contractID"));
             events.add(std);
         }
         return events;

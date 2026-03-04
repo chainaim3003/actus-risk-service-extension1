@@ -2,6 +2,9 @@
  * Copyright (C) 2016 - present by ACTUS Financial Research Foundation
  *
  * Please see distribution for license.
+ *
+ * MODIFIED: Added AA365S/AA365N sub-day DCC cases (Feb 2026)
+ * MODIFIED: Bypass toFullHours() rounding for sub-day conventions
  */
 package org.actus.conventions.daycount;
 
@@ -11,30 +14,13 @@ import org.actus.util.StringUtils;
 
 import java.time.LocalDateTime;
 
-/**
- * Component for the calculation of time-periods between two time-instances
- * according to a {@link DayCountConventionProvider}
- */
 public class DayCountCalculator {
     private DayCountConventionProvider convention;
 
-    /**
-     * Generic Constructor
-     *
-     * @param convention the {@link DayCountConventionProvider}
-     * @return
-     */
     public DayCountCalculator(DayCountConventionProvider convention) {
         this.convention = convention;
     }
 
-    /**
-     * Convenience Constructor
-     * 
-     * @param convention the {@link DayCountConventionProvider}
-     * @param calendar the {@link BusinessDayCalendarProvider} to be used in case of {@code convention="B/252"}
-     * @return
-     */
     public DayCountCalculator(String convention, BusinessDayCalendarProvider calendar) {
         switch (convention) {
             case StringUtils.DayCountConvention_30E360:
@@ -62,24 +48,34 @@ public class DayCountCalculator {
             case StringUtils.DayCountConvention_28336:
             	this.convention = new TwentyEightThreeThirtySix();
             	break;
+
+            // ========================== NEW CASES ==========================
+            case StringUtils.DayCountConvention_AA365S:
+                this.convention = new ActualThreeSixtyFiveFixedSubDay();
+                break;
+            case StringUtils.DayCountConvention_AA365N:
+                this.convention = new ActualThreeSixtyFiveFixedNano();
+                break;
+            // ===============================================================
         }
     }
 
     /**
-     * Compute the number of days as a fraction of total number of days in the entire
-     * reference year between two time-instances
+     * Compute day count fraction between two time-instances.
      * <p>
-     * Note, {@param startTime} and {@param endTime} times are rounded to the "full hour"
-     * before calculating the day count fraction.
-     * That is, timestamps with minutes in (0,29) are floored to the current full hour
-     * while timestamps with minutes in (30,59) are ceiled to the next full hour.
-     * 
-     * @param startTime the start of the time period
-     * @param endTime the end of the time period
-     * @return the number of days as a fraction of total number of days in the entire
-     * reference year between startTime and endTime
+     * For existing day+ conventions: timestamps are rounded to "full hour" first
+     * (minutes 0-29 floored, 30-59 ceiled).
+     * <p>
+     * For sub-day conventions (AA365S, AA365N): toFullHours() is BYPASSED to
+     * preserve minute/second/nanosecond precision.
      */
     public double dayCountFraction(LocalDateTime startTime, LocalDateTime endTime) {
+        // NEW: Bypass toFullHours() for sub-day conventions
+        if (convention instanceof ActualThreeSixtyFiveFixedSubDay
+                || convention instanceof ActualThreeSixtyFiveFixedNano) {
+            return convention.dayCountFraction(startTime, endTime);
+        }
+        // Existing behavior: round to full hours first
         return convention.dayCountFraction(TimeAdjuster.toFullHours(startTime), TimeAdjuster.toFullHours(endTime));
     }
 }

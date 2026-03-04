@@ -468,13 +468,13 @@ public final class ExoticLinearAmortizer {
 							noOfPrEvents = Math.abs((int) Math.ceil((sum + notionalPrincipal) / prPayment[index+1]));
 							t = prAnchor.get(index+1);
 							for (int i = 0; i < noOfPrEvents-1; i++) {
-								t = t.plus(CycleUtils.parsePeriod(prCycle[index+1]));
+							t = t.plus(CycleUtils.parseTemporalAmount(prCycle[index+1]));
 							}
 							sum += noOfPrEvents * prIncDec[index+1] * prPayment[index+1];
-						} else {
+							} else {
 							index++;
 							for (int i = 0; i < noOfPrEvents; i++) {
-								t = t.plus(CycleUtils.parsePeriod(prCycle[index - 1]));
+							t = t.plus(CycleUtils.parseTemporalAmount(prCycle[index - 1]));
 							}
 						}
 					} while ((sum + notionalPrincipal) > 0);
@@ -482,7 +482,7 @@ public final class ExoticLinearAmortizer {
 					int noOfPrEvents = (int) Math.ceil(notionalPrincipal / prPayment[0]);
 					t = prAnchor.get(0);
 					for (int i = 0; i < noOfPrEvents-1; i++) {
-						t = t.plus(CycleUtils.parsePeriod(prCycle[0]));
+					t = t.plus(CycleUtils.parseTemporalAmount(prCycle[0]));
 					}
 				}
 				maturity = timeAdjuster.shiftEventTime(t);

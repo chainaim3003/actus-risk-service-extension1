@@ -24,6 +24,10 @@ public final class StringUtils {
     public final static String DayCountConvention_30E360ISDA = "30E360ISDA";
     public final static String DayCountConvention_A336 = "A336";
     public final static String DayCountConvention_28336 = "28336";
+
+    // day count conventions (sub-day precision)
+    public final static String DayCountConvention_AA365S = "AA365S";
+    public final static String DayCountConvention_AA365N = "AA365N";
     
     // calc/shift conventions
     public final static String CalcShiftConvention_CS = "CS";

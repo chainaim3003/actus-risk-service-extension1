@@ -50,7 +50,7 @@ public final class ForeignExchangeOutright {
                 events.add(EventFactory.createEvent(model.getAs("maturityDate"), EventType.MD, model.getAs("currency"), new POF_MD1_FXOUT(), new STF_MD1_FXOUT(), model.getAs("businessDayConvention"), model.getAs("contractID")));
                 events.add(EventFactory.createEvent(model.getAs("maturityDate"), EventType.MD, model.getAs("currency2"), new POF_MD2_FXOUT(), new STF_MD2_FXOUT(), model.getAs("businessDayConvention"), model.getAs("contractID")));
             } else {
-                events.add(EventFactory.createEvent(model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(model.<LocalDateTime>getAs("maturityDate").plus(CycleUtils.parsePeriod(model.getAs("settlementPeriod")))), EventType.STD, model.getAs("currency"), new POF_STD_FXOUT(), new STF_STD_FXOUT(), model.getAs("businessDayConvention"), model.getAs("contractID")));
+                events.add(EventFactory.createEvent(model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(model.<LocalDateTime>getAs("maturityDate").plus(CycleUtils.parseTemporalAmount(model.getAs("settlementPeriod")))), EventType.STD, model.getAs("currency"), new POF_STD_FXOUT(), new STF_STD_FXOUT(), model.getAs("businessDayConvention"), model.getAs("contractID")));
             }
         }
 

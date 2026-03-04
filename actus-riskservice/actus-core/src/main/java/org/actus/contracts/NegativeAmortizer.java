@@ -26,8 +26,10 @@ import org.actus.functions.lam.*;
 import org.actus.functions.nam.*;
 import org.actus.functions.StateTransitionFunction;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.temporal.TemporalAmount;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -128,7 +130,7 @@ public final class NegativeAmortizer {
                     || !model.getAs("cycleOfInterestPayment").equals(model.getAs("cycleOfPrincipalRedemption")) ) {
 
                 // Parse the period of principal redemption cycle
-                Period prcl = CycleUtils.parsePeriod(model.getAs("cycleOfPrincipalRedemption"));
+                TemporalAmount prcl = CycleUtils.parseTemporalAmount(model.getAs("cycleOfPrincipalRedemption"));
 
                 // Calculate the next principal redemption date by subtracting the cycle period from the anchor date
                 LocalDateTime pranxm = model.<LocalDateTime>getAs("cycleAnchorDateOfPrincipalRedemption").minus(prcl);
@@ -373,7 +375,7 @@ public final class NegativeAmortizer {
             LocalDateTime t0 = model.getAs("statusDate");
             LocalDateTime pranx = model.getAs("cycleAnchorDateOfPrincipalRedemption");
             LocalDateTime ied = model.getAs("initialExchangeDate");
-            Period prcl = CycleUtils.parsePeriod(model.getAs("cycleOfPrincipalRedemption"));
+            TemporalAmount prcl = CycleUtils.parseTemporalAmount(model.getAs("cycleOfPrincipalRedemption"));
             LocalDateTime lastEvent;
             if(!CommonUtils.isNull(pranx) && (pranx.isEqual(t0) || pranx.isAfter(t0))) {
                 lastEvent = pranx;
@@ -395,7 +397,11 @@ public final class NegativeAmortizer {
             double timeFromLastEventPlusOneCycle = model.<DayCountCalculator>getAs("dayCountConvention").dayCountFraction(lastEvent, lastEvent.plus(prcl));
             double redemptionPerCycle = model.<Double>getAs("nextPrincipalRedemptionPayment") - (timeFromLastEventPlusOneCycle * model.<Double>getAs("nominalInterestRate") * model.<Double>getAs("notionalPrincipal"));
             int remainingPeriods = (int) Math.ceil(model.<Double>getAs("notionalPrincipal") / redemptionPerCycle)-1;
-            maturity = model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(lastEvent.plus(prcl.multipliedBy(remainingPeriods)));;
+            if (prcl instanceof Duration) {
+                maturity = model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(lastEvent.plus(((Duration) prcl).multipliedBy(remainingPeriods)));
+            } else {
+                maturity = model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(lastEvent.plus(((Period) prcl).multipliedBy(remainingPeriods)));
+            }
         }
         return maturity;
     }

@@ -30,8 +30,10 @@ import org.actus.functions.nam.*;
 import org.actus.functions.ann.*;
 import org.actus.functions.StateTransitionFunction;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.Period;
+import java.time.temporal.TemporalAmount;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -88,8 +90,19 @@ public final class Annuity {
 
         // initial principal redemption fixing event (if not already fixed)
         if(model.getAs("nextPrincipalRedemptionPayment")==null) {
+            TemporalAmount prCycle = CycleUtils.parseTemporalAmount(model.getAs("cycleOfPrincipalRedemption"));
+            LocalDateTime prfTime;
+            if (prCycle instanceof Duration) {
+                // Sub-day: go back one cycle period instead of one day
+                prfTime = model.<LocalDateTime>getAs("cycleAnchorDateOfPrincipalRedemption")
+                              .minus((Duration) prCycle);
+            } else {
+                // Day+: preserve existing behavior
+                prfTime = model.<LocalDateTime>getAs("cycleAnchorDateOfPrincipalRedemption")
+                              .minusDays(1);
+            }
             events.add(EventFactory.createEvent(
-                model.<LocalDateTime>getAs("cycleAnchorDateOfPrincipalRedemption").minusDays(1), 
+                prfTime, 
                 EventType.PRF, 
                 model.getAs("currency"), 
                 new POF_RR_PAM(),
@@ -160,7 +173,7 @@ public final class Annuity {
                     || !model.getAs("cycleOfInterestPayment").equals(model.getAs("cycleOfPrincipalRedemption")) ) {
 
                 // Parse the period of principal redemption cycle
-                Period prcl = CycleUtils.parsePeriod(model.getAs("cycleOfPrincipalRedemption"));
+                TemporalAmount prcl = CycleUtils.parseTemporalAmount(model.getAs("cycleOfPrincipalRedemption"));
 
                 // Calculate the next principal redemption date by subtracting the cycle period from the anchor date
                 LocalDateTime pranxm = model.<LocalDateTime>getAs("cycleAnchorDateOfPrincipalRedemption").minus(prcl);
@@ -404,7 +417,7 @@ public final class Annuity {
             LocalDateTime t0 = model.getAs("statusDate");
             LocalDateTime pranx = model.getAs("cycleAnchorDateOfPrincipalRedemption");
             LocalDateTime ied = model.getAs("initialExchangeDate");
-            Period prcl = CycleUtils.parsePeriod(model.getAs("cycleOfPrincipalRedemption"));
+            TemporalAmount prcl = CycleUtils.parseTemporalAmount(model.getAs("cycleOfPrincipalRedemption"));
             LocalDateTime lastEvent;
             if(!CommonUtils.isNull(pranx) && (pranx.isEqual(t0) || pranx.isAfter(t0))) {
                 lastEvent = pranx;
@@ -426,7 +439,11 @@ public final class Annuity {
             double timeFromLastEventPlusOneCycle = model.<DayCountCalculator>getAs("dayCountConvention").dayCountFraction(lastEvent, lastEvent.plus(prcl));
             double redemptionPerCycle = model.<Double>getAs("nextPrincipalRedemptionPayment") - (timeFromLastEventPlusOneCycle * model.<Double>getAs("nominalInterestRate") * model.<Double>getAs("notionalPrincipal"));
             int remainingPeriods = (int) Math.ceil(model.<Double>getAs("notionalPrincipal") / redemptionPerCycle)-1;
-            maturity = model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(lastEvent.plus(prcl.multipliedBy(remainingPeriods)));
+            if (prcl instanceof Duration) {
+                maturity = model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(lastEvent.plus(((Duration) prcl).multipliedBy(remainingPeriods)));
+            } else {
+                maturity = model.<BusinessDayAdjuster>getAs("businessDayConvention").shiftEventTime(lastEvent.plus(((Period) prcl).multipliedBy(remainingPeriods)));
+            }
         } else if (CommonUtils.isNull(maturity)){
             maturity = amortizationDate;
         }

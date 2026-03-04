@@ -53,6 +53,9 @@ import org.actus.types.InterestCalculationBase;
 import org.actus.util.CommonUtils;
 import org.actus.util.CycleUtils;
 import org.actus.util.PurchaseEventUtils;
+import java.time.Duration;
+import java.time.Period;
+import java.time.temporal.TemporalAmount;
 import org.actus.util.RedemptionUtils;
 import org.actus.util.TerminationEventUtils;
 
@@ -352,7 +355,12 @@ public final class LinearAmortizer {
             }
             String cycle = model.getAs("cycleOfPrincipalRedemption");
             adjuster = new EndOfMonthAdjuster(model.getAs("endOfMonthConvention"), lastEvent, cycle);
-            maturity = adjuster.shift(lastEvent.plus(CycleUtils.parsePeriod(cycle).multipliedBy(remainingPeriods)));
+            TemporalAmount cycleAmount = CycleUtils.parseTemporalAmount(cycle);
+            if (cycleAmount instanceof Duration) {
+                maturity = adjuster.shift(lastEvent.plus(((Duration) cycleAmount).multipliedBy(remainingPeriods)));
+            } else {
+                maturity = adjuster.shift(lastEvent.plus(((Period) cycleAmount).multipliedBy(remainingPeriods)));
+            }
         }
         return maturity;
     }

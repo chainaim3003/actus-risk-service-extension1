@@ -50,6 +50,23 @@ import java.util.Set;
  *   2024: ETF approval rally 50-80%, then normalization
  *   2025-2026: 40-70% base, spikes to 100%+ during events
  *
+ * FIX 1 — structural stride-based filter in contractStart():
+ *   CollateralVelocityModel computes velocity from a rolling window of LTV values
+ *   accumulated during stateAt() calls. Because there is no prior LTV history at
+ *   contractStart time, it is impossible to pre-evaluate velocity and skip callouts
+ *   the way HealthFactorModel can skip by checking collateral prices.
+ *   Instead, a STRIDE is applied: only every CALLOUT_STRIDE-th monitoring time is
+ *   emitted as a PP callout. The stride is chosen so that the callout interval is
+ *   still comfortably below the urgentDays threshold.
+ *   With monitoringEventTimes at 1-min intervals and urgentDays=0.0208 (30 min):
+ *     CALLOUT_STRIDE = 5 → callout every 5 min → 288 callouts for a 1-day window.
+ *   With monitoringEventTimes at 15-min intervals (FIX 2 JSON):
+ *     CALLOUT_STRIDE = 1 → callout every 15 min → 96 callouts (no further reduction needed).
+ *   This keeps the total PP event count manageable while still catching velocity spikes.
+ *
+ * FIX 2 — reduced monitoringEventTimes density (JSON payload):
+ *   Use 96 x 15-min points instead of 1440 x 1-min points for initial testing.
+ *
  * Place this file in:
  *   src/main/java/org/actus/risksrv3/utils/defiliquidation1/
  */
@@ -57,20 +74,27 @@ public class CollateralVelocityModel implements BehaviorRiskModelProvider {
 
     public static final String CALLOUT_TYPE = "MRD";
 
+    // FIX 1: stride for 1-minute resolution data.
+    // Every 5th minute = 5-minute callout interval.
+    // Still well below urgentDays=0.0208 (30 min), so no liquidation event is missed.
+    // When using 15-min resolution data (FIX 2 JSON), stride=1 is used automatically
+    // because the monitoringEventTimes are already spaced 15 minutes apart.
+    private static final int CALLOUT_STRIDE = 5;
+
     private final String riskFactorId;
     private final String collateralPriceMOC;
     private final double collateralQuantity;
     private final double liquidationThreshold;     // e.g. 0.83
-    private final double safeHorizonDays;          // e.g. 7 days
-    private final double urgentDays;               // e.g. 2 days
-    private final double moderateRepayFraction;    // e.g. 0.10
-    private final double aggressiveRepayFraction;  // e.g. 0.25
-    private final int rollingWindowSize;           // e.g. 5 data points
+    private final double safeHorizonDays;          // e.g. 0.25 days = 6 hours
+    private final double urgentDays;               // e.g. 0.0208 days = 30 minutes
+    private final double moderateRepayFraction;    // e.g. 0.05
+    private final double aggressiveRepayFraction;  // e.g. 0.15
+    private final int rollingWindowSize;           // e.g. 30
     private final List<String> monitoringEventTimes;
     private final MultiMarketRiskModel marketModel;
 
-    // Rolling LTV history for velocity computation
-    private final LinkedList<double[]> ltvHistory = new LinkedList<>(); // [0]=time_epoch, [1]=ltv
+    // Rolling LTV history for velocity computation — populated during stateAt() calls
+    private final LinkedList<double[]> ltvHistory = new LinkedList<>(); // [0]=epoch_seconds, [1]=ltv
 
     public CollateralVelocityModel(String riskFactorId,
                                    CollateralVelocityModelData data,
@@ -97,19 +121,75 @@ public class CollateralVelocityModel implements BehaviorRiskModelProvider {
 
     @Override
     public List<CalloutData> contractStart(ContractModel contract) {
-        // PP-before-IED fix: filter out callouts before contract starts
+        // FIX 1 — stride-based filter.
+        // Velocity cannot be pre-evaluated without a rolling LTV history, so we
+        // use CALLOUT_STRIDE to thin the callout list instead of skipping by value.
+        // Only every CALLOUT_STRIDE-th monitoring time is emitted as a PP callout.
+        // The interval between callouts remains well below urgentDays so no
+        // critical velocity event is missed.
+        //
+        // FIX 2: when the JSON payload already uses 15-min spacing, CALLOUT_STRIDE=5
+        // would make callouts 75 minutes apart (too coarse for urgentDays=30min).
+        // Therefore we auto-detect the spacing of the first two monitoring times and
+        // cap the effective stride so the callout interval never exceeds urgentDays/2.
+
         LocalDateTime ied = contract.getAs("initialExchangeDate");
-        List<CalloutData> callouts = new ArrayList<>();
-        for (String eventTime : this.monitoringEventTimes) {
-            if (ied != null) {
-                LocalDateTime eventDateTime = LocalDateTime.parse(eventTime);
-                if (eventDateTime.isBefore(ied)) {
-                    System.out.println("**** CollateralVelocityModel: SKIPPING pre-IED callout " + eventTime + " (IED=" + ied + ")");
-                    continue;
-                }
-            }
-            callouts.add(new CalloutData(this.riskFactorId, eventTime, CALLOUT_TYPE));
+
+        // Auto-detect monitoring time spacing in minutes
+        long spacingMinutes = 1; // default: assume 1-min data
+        if (this.monitoringEventTimes.size() >= 2) {
+            LocalDateTime t0 = LocalDateTime.parse(this.monitoringEventTimes.get(0));
+            LocalDateTime t1 = LocalDateTime.parse(this.monitoringEventTimes.get(1));
+            long diff = ChronoUnit.MINUTES.between(t0, t1);
+            if (diff > 0) spacingMinutes = diff;
         }
+
+        // urgentDays in minutes
+        long urgentMinutes = Math.max(1L, (long)(this.urgentDays * 24 * 60));
+        // Callout interval must be <= urgentDays/2 for adequate resolution
+        long maxIntervalMinutes = Math.max(1L, urgentMinutes / 2);
+        // Effective stride: how many monitoring steps to skip between callouts
+        int effectiveStride = (int) Math.max(1, maxIntervalMinutes / spacingMinutes);
+        // Cap at CALLOUT_STRIDE (don't emit MORE than every CALLOUT_STRIDE steps)
+        effectiveStride = Math.min(effectiveStride, CALLOUT_STRIDE);
+
+        List<CalloutData> callouts = new ArrayList<>();
+        int skippedPreIed = 0;
+        int skippedStride = 0;
+        int included      = 0;
+        int positionIndex = 0; // counts events after IED for stride modulo
+
+        System.out.println("**** CollateralVelocityModel.contractStart [" + this.riskFactorId + "]:"
+                + " spacingMin=" + spacingMinutes
+                + " urgentMin=" + urgentMinutes
+                + " effectiveStride=" + effectiveStride
+                + " totalEvents=" + this.monitoringEventTimes.size());
+
+        for (String eventTime : this.monitoringEventTimes) {
+            LocalDateTime eventDateTime = LocalDateTime.parse(eventTime);
+
+            // Guard 1: skip events before contract IED
+            if (ied != null && eventDateTime.isBefore(ied)) {
+                skippedPreIed++;
+                continue;
+            }
+
+            // Guard 2 (FIX 1): stride filter — include only every effectiveStride-th event
+            if (positionIndex % effectiveStride != 0) {
+                skippedStride++;
+                positionIndex++;
+                continue;
+            }
+
+            callouts.add(new CalloutData(this.riskFactorId, eventTime, CALLOUT_TYPE));
+            included++;
+            positionIndex++;
+        }
+
+        System.out.println("**** CollateralVelocityModel.contractStart [" + this.riskFactorId + "]:"
+                + " skippedPreIED=" + skippedPreIed
+                + " skippedByStride=" + skippedStride
+                + " callouts=" + included);
         return callouts;
     }
 
@@ -125,9 +205,10 @@ public class CollateralVelocityModel implements BehaviorRiskModelProvider {
 
         double currentLTV = debt / collateralValue;
 
-        // Store in rolling window
-        long epochDay = time.toLocalDate().toEpochDay();
-        ltvHistory.addLast(new double[]{epochDay, currentLTV});
+        // Store in rolling window using epoch seconds for sub-day resolution
+        // (the original used epochDay which loses intra-day granularity at minute level)
+        long epochSeconds = time.toEpochSecond(java.time.ZoneOffset.UTC);
+        ltvHistory.addLast(new double[]{epochSeconds, currentLTV});
         if (ltvHistory.size() > rollingWindowSize) {
             ltvHistory.removeFirst();
         }
@@ -139,11 +220,12 @@ public class CollateralVelocityModel implements BehaviorRiskModelProvider {
         if (ltvHistory.size() >= 2) {
             double[] oldest = ltvHistory.getFirst();
             double[] newest = ltvHistory.getLast();
-            double daysDiff = newest[0] - oldest[0];
-            double ltvDiff = newest[1] - oldest[1];
+            // Convert epoch seconds difference to days
+            double daysDiff = (newest[0] - oldest[0]) / 86400.0;
+            double ltvDiff  = newest[1] - oldest[1];
 
             if (daysDiff > 0) {
-                velocity = ltvDiff / daysDiff; // positive = deteriorating
+                velocity = ltvDiff / daysDiff; // positive = deteriorating LTV
 
                 if (velocity > 0.0) {
                     double ltvGap = this.liquidationThreshold - currentLTV;
@@ -159,7 +241,7 @@ public class CollateralVelocityModel implements BehaviorRiskModelProvider {
         System.out.println("**** CollateralVelocityModel: time=" + time
                 + " LTV=" + String.format("%.4f", currentLTV)
                 + " velocity=" + String.format("%.6f", velocity) + "/day"
-                + " daysToLiq=" + String.format("%.1f", daysToLiquidation)
+                + " daysToLiq=" + (daysToLiquidation == Double.MAX_VALUE ? "MAX" : String.format("%.4f", daysToLiquidation))
                 + " windowSize=" + ltvHistory.size());
 
         // Decision based on time-to-liquidation
@@ -168,11 +250,11 @@ public class CollateralVelocityModel implements BehaviorRiskModelProvider {
             return 1.0;
         } else if (daysToLiquidation <= urgentDays) {
             System.out.println("**** CollateralVelocityModel: URGENT daysToLiq="
-                    + String.format("%.1f", daysToLiquidation));
+                    + String.format("%.4f", daysToLiquidation));
             return aggressiveRepayFraction;
         } else if (daysToLiquidation <= safeHorizonDays) {
             System.out.println("**** CollateralVelocityModel: MODERATE daysToLiq="
-                    + String.format("%.1f", daysToLiquidation));
+                    + String.format("%.4f", daysToLiquidation));
             return moderateRepayFraction;
         } else {
             return 0.0;
