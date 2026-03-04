@@ -25,7 +25,8 @@ services:
   actus-riskserver-ce:
     image: actus-risksrv3-custom:latest
     ports:
-      - "8082:8082"
+    #  - "8082:8082"
+    - "127.0.0.1:8082:8082" 
     depends_on:
       - mongodb
     networks:
@@ -36,7 +37,8 @@ services:
     # This picks up STF_PP_rf2 and STF_AFD_rf2 null-safe feeRate fix
     image: actus-server-rf20-custom:latest
     ports:
-      - "8083:8083"
+    #  - "8083:8083"
+    - "127.0.0.1:8083:8083"    
     networks:
       - actus-network
 
