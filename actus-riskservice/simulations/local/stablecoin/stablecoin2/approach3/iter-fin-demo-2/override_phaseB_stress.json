@@ -1,0 +1,15 @@
+{
+  "overrideActive": true,
+  "tokenSupplyOverride": 200000,
+  "tokenSupplyNote": "100K already circulating (minted in Phase A) + 100K new mint request = 200K total to evaluate",
+  "description": "PHASE B — STRESS: $100,000 cash withdrawn for emergency regulatory compliance payment. Reserves drop to $415K. A simple backing check sees 207% backing (PASSES). But Converge.fi's liquidity gate catches that only $30K is immediate cash — 7.2% of reserves, below the 10% MiCA Art.45 threshold. The $385K locked in T-bills cannot be redeemed for weeks or months.",
+  "portfolioAdjustments": [
+    {
+      "contractID": "cash-reserve-001",
+      "newNotionalPrincipal": 20000,
+      "reason": "$100K withdrawn — emergency regulatory compliance payment to state authority"
+    }
+  ],
+  "contracts": [],
+  "earlyLiquidations": []
+}
