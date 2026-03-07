@@ -1,6 +1,6 @@
 {
   "overrideActive": false,
-  "description": "Default state — no interventions. The collection runs the base portfolio as-is.",
+  "description": "Default state — no interventions.",
   "portfolioAdjustments": [],
   "contracts": [],
   "earlyLiquidations": []

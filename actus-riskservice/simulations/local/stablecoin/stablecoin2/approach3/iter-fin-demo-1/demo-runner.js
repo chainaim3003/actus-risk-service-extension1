@@ -115,22 +115,30 @@ function mergePortfolio(portfolio, overrides) {
 // ════════════════════════════════════════════════════════════════════
 
 async function runACTUS(portfolio) {
-  const actusFields = [
-    'contractType', 'contractID', 'contractRole', 'contractDealDate',
-    'initialExchangeDate', 'statusDate', 'maturityDate', 'notionalPrincipal',
-    'premiumDiscountAtIED', 'nominalInterestRate', 'currency',
-    'dayCountConvention', 'calendar', 'businessDayConvention'
-  ];
+  // ACTUS eventsBatch requires:
+  //   - notionalPrincipal and nominalInterestRate as STRINGS
+  //   - top-level "riskFactors": [] array
+  //   - NO calendar, businessDayConvention, or premiumDiscountAtIED
+  // Reference: working Approach3-EventsBatch-MultiContract-100K collections
 
   const actusContracts = portfolio.contracts.map(c => {
-    const actus = {};
-    for (const f of actusFields) {
-      if (c[f] !== undefined) actus[f] = c[f];
-    }
-    return actus;
+    return {
+      contractType:         c.contractType,
+      contractID:           c.contractID,
+      contractRole:         c.contractRole,
+      contractDealDate:     c.contractDealDate,
+      initialExchangeDate:  c.initialExchangeDate,
+      statusDate:           c.statusDate,
+      maturityDate:         c.maturityDate,
+      notionalPrincipal:    String(c.notionalPrincipal),
+      nominalInterestRate:  String(c.nominalInterestRate),
+      currency:             c.currency,
+      dayCountConvention:   c.dayCountConvention,
+      description:          c.description
+    };
   });
 
-  const body = { contracts: actusContracts };
+  const body = { contracts: actusContracts, riskFactors: [] };
   const url = `${SIM_HOST}/eventsBatch`;
 
   console.log(`\n  📡 POST ${url} — ${actusContracts.length} contracts`);
