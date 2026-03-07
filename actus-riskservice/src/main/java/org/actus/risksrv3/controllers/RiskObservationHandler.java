@@ -42,6 +42,7 @@ import org.actus.risksrv3.models.hybridtreasury1.YieldArbitrageModelData;
 import org.actus.risksrv3.models.hybridtreasury1.CashConversionCycleModelData;
 import org.actus.risksrv3.models.hybridtreasury1.FairValueComplianceModelData;
 import org.actus.risksrv3.models.hybridtreasury1.IntegratedStressModelData;
+import org.actus.risksrv3.models.hybridtreasury1.ScheduledCashFlowModelData;
 // ====== END HYBRID TREASURY MODEL DATA IMPORTS ======
 // ====== SUPPLY CHAIN TARIFF MODEL DATA IMPORTS ======
 import org.actus.risksrv3.models.supplychaintariff1.TariffSpreadModelData;
@@ -92,6 +93,7 @@ import org.actus.risksrv3.repository.hybridtreasury1.YieldArbitrageModelStore;
 import org.actus.risksrv3.repository.hybridtreasury1.CashConversionCycleModelStore;
 import org.actus.risksrv3.repository.hybridtreasury1.FairValueComplianceModelStore;
 import org.actus.risksrv3.repository.hybridtreasury1.IntegratedStressModelStore;
+import org.actus.risksrv3.repository.hybridtreasury1.ScheduledCashFlowModelStore;
 // ====== END HYBRID TREASURY STORE IMPORTS ======
 // ====== SUPPLY CHAIN TARIFF STORE IMPORTS ======
 import org.actus.risksrv3.repository.supplychaintariff1.TariffSpreadModelStore;
@@ -143,6 +145,7 @@ import org.actus.risksrv3.utils.hybridtreasury1.YieldArbitrageModel;
 import org.actus.risksrv3.utils.hybridtreasury1.CashConversionCycleModel;
 import org.actus.risksrv3.utils.hybridtreasury1.FairValueComplianceModel;
 import org.actus.risksrv3.utils.hybridtreasury1.IntegratedStressModel;
+import org.actus.risksrv3.utils.hybridtreasury1.ScheduledCashFlowModel;
 // ====== END HYBRID TREASURY MODEL UTIL IMPORTS ======
 // ====== SUPPLY CHAIN TARIFF MODEL UTIL IMPORTS ======
 import org.actus.risksrv3.utils.supplychaintariff1.TariffSpreadModel;
@@ -227,6 +230,8 @@ public class RiskObservationHandler {
 	private FairValueComplianceModelStore fairValueComplianceModelStore;
 	@Autowired
 	private IntegratedStressModelStore integratedStressModelStore;
+	@Autowired
+	private ScheduledCashFlowModelStore scheduledCashFlowModelStore;
 	// ====== END HYBRID TREASURY MODEL STORES ======
 	// ====== SUPPLY CHAIN TARIFF MODEL STORES ======
 	@Autowired
@@ -604,18 +609,36 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  else if (rfd.getRiskFactorType().equals("IntegratedStressModel")) {
-				  Optional<IntegratedStressModelData> odata =
-						  this.integratedStressModelStore.findById(rfxid);
-				  if (odata.isPresent()) {
-					  System.out.println("**** fnp237 found IntegratedStressModel ; rfxid = " + rfxid);
-					  IntegratedStressModel mdl =
-							  new IntegratedStressModel(rfxid, odata.get(), this.currentMarketModel);
-					  currentBehaviorModel.add(rfxid, mdl);
-				  }
-				  else {
-					  throw new org.actus.risksrv3.controllers.hybridtreasury1.IntegratedStressModelNotFoundException(rfxid);
-				  }
+			  Optional<IntegratedStressModelData> odata =
+			  this.integratedStressModelStore.findById(rfxid);
+			  if (odata.isPresent()) {
+			  System.out.println("**** fnp237 found IntegratedStressModel ; rfxid = " + rfxid);
+			  IntegratedStressModel mdl =
+			  new IntegratedStressModel(rfxid, odata.get(), this.currentMarketModel);
+			  currentBehaviorModel.add(rfxid, mdl);
 			  }
+			  else {
+			  throw new org.actus.risksrv3.controllers.hybridtreasury1.IntegratedStressModelNotFoundException(rfxid);
+			  }
+			  }
+		  // ================================================================
+		  // SCHEDULED CASH FLOW MODEL (Treasury Model 5.9)
+		  // Routes deterministic T-Bill / CLM IP/MD cash flows into CASH-PAM
+		  // as PP signals, making CASH-PAM a full central cash pool ledger.
+		  // ================================================================
+		  else if (rfd.getRiskFactorType().equals("ScheduledCashFlowModel")) {
+			  Optional<ScheduledCashFlowModelData> odata =
+					  this.scheduledCashFlowModelStore.findById(rfxid);
+			  if (odata.isPresent()) {
+				  System.out.println("**** fnp270 found ScheduledCashFlowModel ; rfxid = " + rfxid);
+				  ScheduledCashFlowModel mdl =
+						  new ScheduledCashFlowModel(rfxid, odata.get());
+				  currentBehaviorModel.add(rfxid, mdl);
+			  }
+			  else {
+				  throw new org.actus.risksrv3.controllers.hybridtreasury1.ScheduledCashFlowModelNotFoundException(rfxid);
+			  }
+		  }
 			  // ================================================================
 			  // SUPPLY CHAIN TARIFF BEHAVIORAL MODELS (6 models)
 			  // GTAP Armington elasticity-based, India-US tariff corridor

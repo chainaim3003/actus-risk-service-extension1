@@ -23,6 +23,7 @@ import  org.actus.risksrv3.models.hybridtreasury1.YieldArbitrageModelData;
 import  org.actus.risksrv3.models.hybridtreasury1.CashConversionCycleModelData;
 import  org.actus.risksrv3.models.hybridtreasury1.FairValueComplianceModelData;
 import  org.actus.risksrv3.models.hybridtreasury1.IntegratedStressModelData;
+import  org.actus.risksrv3.models.hybridtreasury1.ScheduledCashFlowModelData;
 // ====== END HYBRID TREASURY MODEL IMPORTS ======
 // ====== SUPPLY CHAIN TARIFF MODEL IMPORTS ======
 import  org.actus.risksrv3.models.supplychaintariff1.TariffSpreadModelData;
@@ -73,6 +74,7 @@ import  org.actus.risksrv3.repository.hybridtreasury1.YieldArbitrageModelStore;
 import  org.actus.risksrv3.repository.hybridtreasury1.CashConversionCycleModelStore;
 import  org.actus.risksrv3.repository.hybridtreasury1.FairValueComplianceModelStore;
 import  org.actus.risksrv3.repository.hybridtreasury1.IntegratedStressModelStore;
+import  org.actus.risksrv3.repository.hybridtreasury1.ScheduledCashFlowModelStore;
 // ====== END HYBRID TREASURY STORE IMPORTS ======
 // ====== SUPPLY CHAIN TARIFF STORE IMPORTS ======
 import  org.actus.risksrv3.repository.supplychaintariff1.TariffSpreadModelStore;
@@ -155,6 +157,8 @@ public class RiskDataManager {
 	private FairValueComplianceModelStore fairValueComplianceModelStore;
 	@Autowired
 	private IntegratedStressModelStore integratedStressModelStore;
+	@Autowired
+	private ScheduledCashFlowModelStore scheduledCashFlowModelStore;
 	// ====== END HYBRID TREASURY MODEL STORES ======
 	// ====== SUPPLY CHAIN TARIFF MODEL STORES ======
 	@Autowired
@@ -689,6 +693,30 @@ public class RiskDataManager {
     @GetMapping("/findAllIntegratedStressModels")
     public List<IntegratedStressModelData> getIntegratedStressModels() {
         return integratedStressModelStore.findAll();
+    }
+
+    // --- 5.9 ScheduledCashFlowModel ---
+    // Routes deterministic T-Bill / CLM IP-MD cash flows into CASH-PAM as
+    // PP signals, enabling CASH-PAM to function as a central cash pool ledger.
+    // riskFactorType in scenario descriptor: "ScheduledCashFlowModel"
+    @PostMapping("/addScheduledCashFlowModel")
+    public String saveScheduledCashFlowModelData(
+            @RequestBody ScheduledCashFlowModelData data) {
+        scheduledCashFlowModelStore.save(data);
+        return "ScheduledCashFlowModel added successfully\n";
+    }
+    @DeleteMapping("/deleteScheduledCashFlowModel/{id}")
+    public String deleteScheduledCashFlowModel(@PathVariable String id) {
+        scheduledCashFlowModelStore.deleteById(id);
+        return "ScheduledCashFlowModel deleted successfully\n";
+    }
+    @GetMapping("/findScheduledCashFlowModel/{id}")
+    public Optional<ScheduledCashFlowModelData> findScheduledCashFlowModelData(@PathVariable String id) {
+        return scheduledCashFlowModelStore.findById(id);
+    }
+    @GetMapping("/findAllScheduledCashFlowModels")
+    public List<ScheduledCashFlowModelData> getScheduledCashFlowModels() {
+        return scheduledCashFlowModelStore.findAll();
     }
 
     // =========================================================================
