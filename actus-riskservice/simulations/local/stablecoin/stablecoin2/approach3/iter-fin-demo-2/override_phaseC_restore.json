@@ -1,16 +1,50 @@
 {
   "overrideActive": true,
+  "description": "PHASE C — RESTORED: The corp bond from Phase B is present in the portfolio (operator's bad decision) but is immediately liquidated at 5% loss ($120K → $114K cash). $90K emergency capital injected. All reserves restored to GENIUS-eligible. Liquidity above 30%. Custodial diversity still suboptimal.",
   "tokenSupplyOverride": 200000,
-  "tokenSupplyNote": "100K still circulating (Phase B mint was blocked) + 100K new mint request = 200K total to evaluate",
-  "description": "PHASE C — RESTORE: After Phase B cash withdrawal, operator intervenes with two TradFi mechanisms: (1) early T-bill liquidation at 3% penalty — sells the 26-week T-bill on secondary market before maturity, paying $3,750 penalty but freeing $121,250 as immediate cash; (2) $90,000 capital injection from treasury fund. Combined effect restores liquidity above 10% threshold. Backing remains strong at 250%.",
   "portfolioAdjustments": [
     {
-      "contractID": "cash-reserve-001",
-      "newNotionalPrincipal": 20000,
-      "reason": "Cash still at $20K from Phase B — regulatory payment already made"
+      "contractID": "cash-bnym-001",
+      "newNotionalPrincipal": 5000,
+      "reason": "Remains drained from Phase B"
+    },
+    {
+      "contractID": "cash-jpm-001",
+      "newNotionalPrincipal": 5000,
+      "reason": "Remains drained from Phase B"
+    },
+    {
+      "contractID": "cash-state-001",
+      "newNotionalPrincipal": 0,
+      "reason": "Remains emptied from Phase B"
+    },
+    {
+      "contractID": "cash-citi-001",
+      "newNotionalPrincipal": 0,
+      "reason": "Remains emptied from Phase B"
+    },
+    {
+      "contractID": "cash-operating-001",
+      "newNotionalPrincipal": 0,
+      "reason": "Remains emptied from Phase B"
     }
   ],
   "contracts": [
+    {
+      "contractType": "PAM",
+      "contractID": "corp-bond-distressed-001",
+      "contractRole": "RPA",
+      "contractDealDate": "2026-03-07T00:00:00",
+      "initialExchangeDate": "2026-03-07T00:00:00",
+      "statusDate": "2026-03-07T00:00:00",
+      "maturityDate": "2027-03-07T00:00:00",
+      "notionalPrincipal": 120000,
+      "nominalInterestRate": 0.065,
+      "currency": "USD",
+      "dayCountConvention": "A365",
+      "reserveCategory": "corp-bond",
+      "description": "Distressed corporate bond from Phase B — present in portfolio, about to be liquidated"
+    },
     {
       "contractType": "PAM",
       "contractID": "emergency-cash-inject-001",
@@ -23,19 +57,18 @@
       "nominalInterestRate": 0.0,
       "currency": "USD",
       "dayCountConvention": "A365",
-      "calendar": "NC",
-      "businessDayConvention": "SCF",
       "reserveCategory": "cash",
-      "hqlaCategory": "L1",
-      "description": "Emergency capital injection from treasury fund — $90,000"
+      "custodian": "bny-mellon-2",
+      "description": "Emergency capital injection — $90,000 from treasury fund deposited at secondary BNY Mellon account"
     }
   ],
   "earlyLiquidations": [
     {
-      "contractID": "tbill-26wk-001",
+      "contractID": "corp-bond-distressed-001",
       "liquidationDate": "2026-03-07T00:00:00",
-      "penaltyPercent": 3.0,
-      "reason": "Sell 26-week T-bill on secondary market before maturity to restore liquidity"
+      "penaltyPercent": 5.0,
+      "custodian": "state-street-2",
+      "reason": "Sell corporate bond at 5% loss to remove ineligible asset and restore GENIUS Act compliance. $120K × 0.95 = $114K recovered as cash at State Street."
     }
   ]
 }

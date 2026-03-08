@@ -1,421 +1,96 @@
 /**
- * Converge.fi Demo Runner v2 — MINT → HALT → RESTORE lifecycle
+ * Converge.fi Demo Runner V4 — Option B: Thin wrapper calling Express server.
  *
- * Key improvement over v1: tokenSupply is no longer a static number.
- * - base_portfolio.json sets tokenSupply = 100K (first mint ask, 0 circulating)
- * - Override files can set tokenSupplyOverride = 200K (100K circulating + 100K ask)
- * - This models real-world behavior: reserves are checked against ACTUAL outstanding
- *   supply + the new mint request, not a fixed cap.
+ * Single source of truth: the Express server computes all metrics.
+ * This script is display-only — ZERO computation.
  *
  * Usage:
- *   node demo-runner.js                                    # localhost:8083
- *   node demo-runner.js --sim http://34.203.247.32:8083    # AWS ACTUS
+ *   node demo-runner.js                           # Phase A, localhost:3001
+ *   node demo-runner.js --phase B                 # Phase B
+ *   node demo-runner.js --phase C                 # Phase C
+ *   node demo-runner.js --url http://host:3001    # Custom server URL
  *
- * No npm install needed — uses native fetch (Node 18+).
- *
- * ACTUS Reference:
- *   https://www.actusfrf.org/taxonomy
- *   https://www.actusfrf.org/dictionary
- *   https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_PAM
+ * Requires: Express server running on port 3001
+ *   cd converge.fi-1/risk-engine && npm run dev
  */
 
-const fs = require('fs');
-const path = require('path');
+const RISK_ENGINE = process.argv.includes('--url')
+  ? process.argv[process.argv.indexOf('--url') + 1]
+  : 'http://localhost:3001';
 
-const SIM_HOST = process.argv.includes('--sim')
-  ? process.argv[process.argv.indexOf('--sim') + 1]
-  : 'http://localhost:8083';
-
-const DEMO_DIR = __dirname;
-
-const THRESHOLDS = {
-  backingRatioBps:   10000,  // 100% — GENIUS Act / MiCA requirement
-  liquidityRatioBps: 1000,   // 10%  — MiCA Art.45 immediate redemption capacity
-  riskScore:         70      // composite ceiling (lower is better)
-};
-
-// ════════════════════════════════════════════════════════════════════
-// 1. READ FILES
-// ════════════════════════════════════════════════════════════════════
-
-function readPortfolio() {
-  const raw = fs.readFileSync(path.join(DEMO_DIR, 'base_portfolio.json'), 'utf8');
-  return JSON.parse(raw);
-}
-
-function readOverrides() {
-  const overridePath = path.join(DEMO_DIR, 'reserve_overrides.json');
-  try {
-    const raw = fs.readFileSync(overridePath, 'utf8');
-    return JSON.parse(raw);
-  } catch (e) {
-    return { overrideActive: false, portfolioAdjustments: [], contracts: [], earlyLiquidations: [] };
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 2. MERGE OVERRIDES INTO PORTFOLIO
-// ════════════════════════════════════════════════════════════════════
-
-function mergePortfolio(portfolio, overrides) {
-  const merged = JSON.parse(JSON.stringify(portfolio));
-
-  if (!overrides.overrideActive) {
-    return merged;
-  }
-
-  // 2a. Override tokenSupply if specified (models circulating + new mint ask)
-  if (overrides.tokenSupplyOverride !== undefined) {
-    const original = merged.metadata.tokenSupply;
-    merged.metadata.tokenSupply = overrides.tokenSupplyOverride;
-    console.log(`  📊 tokenSupply: ${original.toLocaleString()} → ${overrides.tokenSupplyOverride.toLocaleString()} (${overrides.tokenSupplyNote || 'override'})`);
-  }
-
-  // 2b. Apply portfolio adjustments (modify existing contract principals)
-  for (const adj of (overrides.portfolioAdjustments || [])) {
-    const idx = merged.contracts.findIndex(c => c.contractID === adj.contractID);
-    if (idx === -1) {
-      console.log(`  ⚠  portfolioAdjustment: contractID not found: ${adj.contractID}`);
-      continue;
-    }
-    const original = merged.contracts[idx].notionalPrincipal;
-    merged.contracts[idx].notionalPrincipal = adj.newNotionalPrincipal;
-    merged.contracts[idx].description += ` [ADJUSTED: ${adj.reason}]`;
-    console.log(`  ↓  ${adj.contractID}: $${original.toLocaleString()} → $${adj.newNotionalPrincipal.toLocaleString()} (${adj.reason})`);
-  }
-
-  // 2c. Process early liquidations (rewrite maturity + apply penalty)
-  for (const liq of (overrides.earlyLiquidations || [])) {
-    const idx = merged.contracts.findIndex(c => c.contractID === liq.contractID);
-    if (idx === -1) {
-      console.log(`  ⚠  earlyLiquidation: contractID not found: ${liq.contractID}`);
-      continue;
-    }
-    const original = merged.contracts[idx];
-    const penaltyFactor = 1 - (liq.penaltyPercent / 100);
-    const penalizedPrincipal = Math.round(original.notionalPrincipal * penaltyFactor * 100) / 100;
-    const penaltyCost = original.notionalPrincipal - penalizedPrincipal;
-
-    const originalMaturity = original.maturityDate;
-    merged.contracts[idx].maturityDate = liq.liquidationDate;
-    merged.contracts[idx].notionalPrincipal = penalizedPrincipal;
-    merged.contracts[idx].reserveCategory = 'cash';
-    merged.contracts[idx].description += ` [EARLY LIQ: ${liq.reason}]`;
-    delete merged.contracts[idx].premiumDiscountAtIED;
-
-    console.log(`  ⚡ EARLY LIQUIDATION: ${liq.contractID}`);
-    console.log(`     maturity: ${originalMaturity} → ${liq.liquidationDate} (IMMEDIATE)`);
-    console.log(`     principal: $${original.notionalPrincipal.toLocaleString()} → $${penalizedPrincipal.toLocaleString()}`);
-    console.log(`     penalty: ${liq.penaltyPercent}% = $${penaltyCost.toLocaleString()} cost (mark-to-market haircut)`);
-  }
-
-  // 2d. Append additional reserve contracts
-  for (const contract of (overrides.contracts || [])) {
-    merged.contracts.push(contract);
-    console.log(`  +  ADDED: ${contract.contractID} — $${contract.notionalPrincipal.toLocaleString()} (${contract.description})`);
-  }
-
-  return merged;
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 3. SEND TO ACTUS 8083 — eventsBatch
-// ════════════════════════════════════════════════════════════════════
-
-async function runACTUS(portfolio) {
-  const actusContracts = portfolio.contracts.map(c => {
-    return {
-      contractType:         c.contractType,
-      contractID:           c.contractID,
-      contractRole:         c.contractRole,
-      contractDealDate:     c.contractDealDate,
-      initialExchangeDate:  c.initialExchangeDate,
-      statusDate:           c.statusDate,
-      maturityDate:         c.maturityDate,
-      notionalPrincipal:    String(c.notionalPrincipal),
-      nominalInterestRate:  String(c.nominalInterestRate),
-      currency:             c.currency,
-      dayCountConvention:   c.dayCountConvention,
-      description:          c.description
-    };
-  });
-
-  const body = { contracts: actusContracts, riskFactors: [] };
-  const url = `${SIM_HOST}/eventsBatch`;
-
-  console.log(`\n  📡 POST ${url} — ${actusContracts.length} contracts`);
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`ACTUS eventsBatch failed: ${res.status} — ${text}`);
-  }
-
-  return await res.json();
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 4. DISPLAY: MATURITY LADDER
-// ════════════════════════════════════════════════════════════════════
-
-function displayMaturityLadder(portfolio) {
-  const statusDate = new Date(portfolio.metadata.statusDate);
-  const hr = '═'.repeat(80);
-
-  console.log(`\n${hr}`);
-  console.log('  MATURITY LADDER — What a simple balance check can NEVER show');
-  console.log(hr);
-  console.log('  CONTRACT                 AMOUNT        AVAILABLE       MATURITY           DAYS');
-  console.log('  ' + '─'.repeat(78));
-
-  let immediateCash = 0;
-  let lockedValue = 0;
-
-  for (const c of portfolio.contracts) {
-    const matDate = new Date(c.maturityDate);
-    const daysLocked = Math.max(0, Math.round((matDate - statusDate) / (1000 * 60 * 60 * 24)));
-    const isCash = c.reserveCategory === 'cash' || daysLocked <= 1;
-    const available = isCash ? 'NOW' : matDate.toISOString().split('T')[0];
-    const amt = `$${c.notionalPrincipal.toLocaleString()}`.padStart(12);
-    const id = c.contractID.padEnd(24);
-    const avail = available.padEnd(15);
-    const days = isCash ? '0' : daysLocked.toString();
-
-    if (isCash) {
-      immediateCash += c.notionalPrincipal;
-    } else {
-      lockedValue += c.notionalPrincipal;
-    }
-
-    console.log(`  ${id} ${amt}    ${avail} ${c.description.substring(0, 20).padEnd(20)} ${days}`);
-  }
-
-  const totalReserves = immediateCash + lockedValue;
-  const tokenSupply = portfolio.metadata.tokenSupply;
-  const cashPct = totalReserves > 0 ? ((immediateCash / totalReserves) * 100).toFixed(1) : '0.0';
-  const lockedPct = totalReserves > 0 ? ((lockedValue / totalReserves) * 100).toFixed(1) : '0.0';
-
-  console.log('  ' + '─'.repeat(78));
-  console.log(`  Immediate cash:    $${immediateCash.toLocaleString()} (${cashPct}% of reserves)`);
-  console.log(`  Locked in T-bills: $${lockedValue.toLocaleString()} (${lockedPct}% — NOT available for redemptions)`);
-  console.log(`  Total reserves:    $${totalReserves.toLocaleString()}`);
-  console.log(`  Supply to eval:    $${tokenSupply.toLocaleString()} (circulating + mint ask)`);
-  console.log(`  Backing ratio:     ${(totalReserves / tokenSupply * 100).toFixed(1)}%`);
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 5. DISPLAY: ACTUS FORWARD SIMULATION EVENTS
-// ════════════════════════════════════════════════════════════════════
-
-function displayForwardSimulation(portfolio, actusResult) {
-  const hr = '═'.repeat(80);
-
-  console.log(`\n${hr}`);
-  console.log('  ACTUS FORWARD SIMULATION — Events from real contract engine');
-  console.log('  Each contract processed through the ACTUS PAM state machine.');
-  console.log('  Events generated WITH DATES AND PAYOFFS — not a balance snapshot.');
-  console.log(hr);
-
-  for (const c of portfolio.contracts) {
-    const actusContract = actusResult.find(
-      r => (r.contractId || r.contractID) === c.contractID
-    );
-    if (!actusContract || !actusContract.events) {
-      console.log(`  ${c.contractID}: no ACTUS response`);
-      continue;
-    }
-
-    const events = actusContract.events;
-    const ied = events.find(e => e.type === 'IED');
-    const md = events.find(e => e.type === 'MD');
-    const ppEvents = events.filter(e => e.type === 'PP');
-
-    const id = c.contractID.padEnd(26);
-    let line = `  ${id}`;
-
-    if (ied) {
-      const iedDate = ied.time.split('T')[0];
-      const iedAmt = ied.payoff !== undefined ? `$${Math.abs(ied.payoff).toLocaleString()}` : '';
-      line += `IED ${iedDate} payoff=${iedAmt}`;
-    }
-    if (md) {
-      const mdDate = md.time.split('T')[0];
-      const mdAmt = md.payoff !== undefined ? `$${Math.abs(md.payoff).toLocaleString()}` : '';
-      line += ` → MD ${mdDate} payoff=+${mdAmt}`;
-    }
-    if (ppEvents.length > 0) {
-      line += ` (${ppEvents.length} PP events)`;
-    }
-
-    console.log(line);
-    console.log(`  ${''.padEnd(26)}ACTUS returned ${events.length} events | status: ${actusContract.status}`);
-  }
-
-  console.log('  ' + '─'.repeat(78));
-  console.log('  These events prove this is NOT a balance check.');
-  console.log('  ACTUS simulates each contract FORWARD through time.');
-  console.log('  Health metrics are DERIVED from this event stream.');
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 6. COMPUTE HEALTH METRICS
-// ════════════════════════════════════════════════════════════════════
-
-function computeHealth(portfolio, actusResult) {
-  const tokenSupply = portfolio.metadata.tokenSupply;
-  let totalReserves = 0;
-  let cashReserves = 0;
-  let tbillReserves = 0;
-
-  for (const contract of portfolio.contracts) {
-    const principal = contract.notionalPrincipal;
-    const category = contract.reserveCategory || 'unknown';
-
-    if (category === 'cash') {
-      cashReserves += principal;
-    } else if (category === 'tbill') {
-      tbillReserves += principal;
-    }
-    totalReserves += principal;
-  }
-
-  const backingRatio = totalReserves / tokenSupply;
-  const liquidityRatio = totalReserves > 0 ? cashReserves / totalReserves : 0;
-
-  const backingGap = Math.max(0, 1 - backingRatio) * 100;
-  const liquidityGap = Math.max(0, 0.10 - liquidityRatio) * 100;
-  const concentrationPenalty = tbillReserves > 0 && totalReserves > 0
-    ? (tbillReserves / totalReserves > 0.80 ? 20 : 0) : 0;
-  const riskScore = Math.min(100, Math.round(backingGap * 3 + liquidityGap * 5 + concentrationPenalty));
-
-  const backingRatioBps = Math.round(backingRatio * 10000);
-  const liquidityRatioBps = Math.round(liquidityRatio * 10000);
-
-  const backingPass = backingRatioBps >= THRESHOLDS.backingRatioBps;
-  const liquidityPass = liquidityRatioBps >= THRESHOLDS.liquidityRatioBps;
-  const riskPass = riskScore <= THRESHOLDS.riskScore;
-  const healthy = backingPass && liquidityPass && riskPass;
-
-  return {
-    tokenSupply,
-    totalReserves,
-    cashReserves,
-    tbillReserves,
-    backingRatio,
-    liquidityRatio,
-    backingRatioBps,
-    liquidityRatioBps,
-    riskScore,
-    backingPass,
-    liquidityPass,
-    riskPass,
-    healthy
-  };
-}
-
-// ════════════════════════════════════════════════════════════════════
-// 7. DISPLAY: HEALTH METRICS + MINT GATE
-// ════════════════════════════════════════════════════════════════════
-
-function displayHealthReport(health) {
-  const hr = '═'.repeat(80);
-  const sr = '─'.repeat(80);
-
-  console.log(`\n${hr}`);
-  console.log('  HEALTH METRICS — Derived from ACTUS forward simulation');
-  console.log(`  Supply evaluated: $${health.tokenSupply.toLocaleString()} (circulating + mint ask)`);
-  console.log(hr);
-
-  const bk = (health.backingRatio * 100).toFixed(1) + '%';
-  const lq = (health.liquidityRatio * 100).toFixed(1) + '%';
-  const rs = health.riskScore.toString();
-
-  console.log('                                       VALUE      THRESHOLD   ON-CHAIN BPS   STATUS');
-  console.log(`  ${sr}`);
-  console.log(`  Backing Ratio   (reserves/supply)   ${bk.padStart(8)}     ≥ 100%      ${health.backingRatioBps.toString().padStart(6)} bps    ${health.backingPass ? '✅ PASS' : '❌ FAIL'}`);
-  console.log(`  Liquidity Ratio (cash/reserves)      ${lq.padStart(8)}     ≥  10%      ${health.liquidityRatioBps.toString().padStart(6)} bps    ${health.liquidityPass ? '✅ PASS' : '❌ FAIL'}`);
-  console.log(`  Risk Score      (composite 0-100)    ${rs.padStart(8)}     ≤  70       ${rs.padStart(6)}          ${health.riskPass ? '✅ PASS' : '❌ FAIL'}`);
-
-  console.log(`\n${hr}`);
-  if (health.healthy) {
-    console.log('  ┌──────────────────────────────────────────────────────────────────┐');
-    console.log('  │          🟢  MINT ALLOWED — ALL CHECKS PASS                     │');
-    console.log('  │          ACE Policy Gate: OPEN                                   │');
-    console.log('  │                                                                  │');
-    console.log(`  │  push-report.ts values:                                          │`);
-    console.log(`  │    backingRatioBps   = ${health.backingRatioBps}`.padEnd(69) + '│');
-    console.log(`  │    liquidityRatioBps = ${health.liquidityRatioBps}`.padEnd(69) + '│');
-    console.log(`  │    riskScore         = ${health.riskScore}`.padEnd(69) + '│');
-    console.log('  └──────────────────────────────────────────────────────────────────┘');
-  } else {
-    const failures = [];
-    if (!health.backingPass) failures.push(`BACKING ${(health.backingRatio * 100).toFixed(1)}% < 100%`);
-    if (!health.liquidityPass) failures.push(`LIQUIDITY ${(health.liquidityRatio * 100).toFixed(1)}% < 10%`);
-    if (!health.riskPass) failures.push(`RISK ${health.riskScore} > 70`);
-    console.log('  ┌──────────────────────────────────────────────────────────────────┐');
-    console.log('  │          🔴  MINT BLOCKED — HEALTH CHECK FAILED                  │');
-    console.log(`  │          Failures: ${failures.join(', ')}`.padEnd(69) + '│');
-    console.log('  │          ACE Policy Gate: CLOSED                                 │');
-    console.log('  │                                                                  │');
-    console.log('  │  KEY INSIGHT: Backing ratio PASSES — a simple reserves-vs-supply │');
-    console.log('  │  check would APPROVE this mint. Only liquidity gate catches it.  │');
-    console.log('  │                                                                  │');
-    console.log(`  │  push-report.ts values:                                          │`);
-    console.log(`  │    backingRatioBps   = ${health.backingRatioBps}`.padEnd(69) + '│');
-    console.log(`  │    liquidityRatioBps = ${health.liquidityRatioBps}`.padEnd(69) + '│');
-    console.log(`  │    riskScore         = ${health.riskScore}`.padEnd(69) + '│');
-    console.log('  └──────────────────────────────────────────────────────────────────┘');
-  }
-  console.log(hr + '\n');
-}
-
-// ════════════════════════════════════════════════════════════════════
-// MAIN
-// ════════════════════════════════════════════════════════════════════
+const phase = process.argv.includes('--phase')
+  ? process.argv[process.argv.indexOf('--phase') + 1].toUpperCase()
+  : 'A';
 
 async function main() {
-  const hr = '═'.repeat(80);
-  console.log('\n' + hr);
-  console.log('  CONVERGE.FI — CRE PERIODIC HEALTH CHECK (v2)');
-  console.log(`  ACTUS Server: ${SIM_HOST}`);
-  console.log(`  Timestamp:    ${new Date().toISOString()}`);
-  console.log(hr);
+  const url = `${RISK_ENGINE}/api/demo/health-check?phase=${phase}`;
+  console.log('════════════════════════════════════════════════════════════');
+  console.log(`  Converge.fi Demo Runner V4 — Phase ${phase}`);
+  console.log('════════════════════════════════════════════════════════════');
+  console.log(`  Fetching: ${url}`);
+  console.log('');
 
-  console.log('\n  STEP 0: Read portfolio + overrides');
-  const portfolio = readPortfolio();
-  const overrides = readOverrides();
-  console.log(`  Base portfolio: ${portfolio.contracts.length} contracts, supply to evaluate: $${portfolio.metadata.tokenSupply.toLocaleString()}`);
-  console.log(`  Override active: ${overrides.overrideActive}`);
-  if (overrides.overrideActive && overrides.description) {
-    console.log(`  Override: ${overrides.description.substring(0, 120)}...`);
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    console.error(`❌ Server returned ${res.status}: ${errorBody}`);
+    process.exit(1);
   }
 
-  console.log('\n  STEP 1: Merge overrides into portfolio');
-  const merged = mergePortfolio(portfolio, overrides);
-  console.log(`  Final portfolio: ${merged.contracts.length} contracts, supply: $${merged.metadata.tokenSupply.toLocaleString()}`);
+  const data = await res.json();
+  displayHealthReport(data);
+}
 
-  displayMaturityLadder(merged);
+function displayHealthReport(data) {
+  const h = data.health;
+  const t = data.thresholds;
 
-  console.log('\n  STEP 2: Send to ACTUS server (eventsBatch)');
-  const actusResult = await runACTUS(merged);
-  const totalEvents = actusResult.reduce((sum, r) => sum + (r.events || []).length, 0);
-  console.log(`  ACTUS returned: ${actusResult.length} contract results, ${totalEvents} total events`);
-
-  displayForwardSimulation(merged, actusResult);
-
-  const health = computeHealth(merged, actusResult);
-  displayHealthReport(health);
-
-  return health;
+  console.log(`  Phase:           ${data.phase}`);
+  console.log(`  Override Active: ${data.overrideActive}`);
+  console.log(`  ACTUS Server:    ${data.actusServer}`);
+  console.log(`  Contracts:       ${data.contractCount}`);
+  console.log(`  ACTUS Events:    ${data.totalACTUSEvents}`);
+  console.log('');
+  console.log('  ─── PORTFOLIO ───────────────────────────────────────────');
+  console.log(`  Token Supply:       ${h.tokenSupply.toLocaleString()}`);
+  console.log(`  Total Reserves:     $${h.totalReserves.toLocaleString()}`);
+  console.log(`  Cash Reserves:      $${h.cashReserves.toLocaleString()}`);
+  console.log(`  T-bill Reserves:    $${h.tbillReserves.toLocaleString()}`);
+  console.log(`  Ineligible:         $${h.ineligibleReserves.toLocaleString()}`);
+  console.log('');
+  console.log('  ─── HEALTH METRICS ──────────────────────────────────────');
+  console.log(`  Backing Pct:        ${h.backingPct}%   ${h.backingPass ? '✅' : '❌'} (threshold: ≥${t.backingPct}%)`);
+  console.log(`  Liquidity Pct:      ${h.liquidityPct}%   ${h.liquidityPass ? '✅' : '❌'} (threshold: ≥${t.liquidityPct}%)`);
+  console.log(`  Risk Score:         ${h.riskScore}     ${h.riskPass ? '✅' : '❌'} (threshold: ≤${t.riskScore})`);
+  console.log(`  Asset Eligibility:  ${h.assetEligibilityPct}%   ${h.eligibilityPass ? '✅' : '❌'} (threshold: ≥${t.assetEligibilityPct}%)`);
+  console.log(`  WAM (days):         ${h.wamDays}`);
+  console.log(`  Custodian Diversity:${h.custodianDiversityScore}`);
+  console.log('');
+  console.log('  ─── MINT GATE ───────────────────────────────────────────');
+  const gateIcon = h.mintGate === 'OPEN' ? '🟢' : '🔴';
+  console.log(`  ${gateIcon} Mint Gate: ${h.mintGate}`);
+  if (!h.healthy) {
+    const failures = [];
+    if (!h.backingPass) failures.push(`Backing ${h.backingPct}% < ${t.backingPct}%`);
+    if (!h.liquidityPass) failures.push(`Liquidity ${h.liquidityPct}% < ${t.liquidityPct}%`);
+    if (!h.riskPass) failures.push(`Risk Score ${h.riskScore} > ${t.riskScore}`);
+    if (!h.eligibilityPass) failures.push(`Eligibility ${h.assetEligibilityPct}% < ${t.assetEligibilityPct}%`);
+    console.log(`  Blocked by: ${failures.join(', ')}`);
+  }
+  console.log('');
+  console.log('  ─── MATURITY LADDER ─────────────────────────────────────');
+  for (const m of h.maturityLadder || []) {
+    if (m.principal <= 0) continue;
+    const eligible = m.isGeniusEligible ? '✅' : '❌';
+    const custInfo = m.custodian ? ` [${m.custodian}]` : '';
+    console.log(`  ${m.contractID}: $${m.principal.toLocaleString()} | ${m.category} | ${m.daysToMaturity}d | GENIUS:${eligible}${custInfo}`);
+  }
+  console.log('');
+  console.log('════════════════════════════════════════════════════════════');
 }
 
 main().catch(err => {
-  console.error('\n  ❌ Demo runner failed:', err.message);
-  console.error('     Is ACTUS running on', SIM_HOST, '?');
+  console.error('❌ Error:', err.message);
   process.exit(1);
 });

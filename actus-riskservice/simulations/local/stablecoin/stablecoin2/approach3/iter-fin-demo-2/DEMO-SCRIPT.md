@@ -1,130 +1,110 @@
-# Converge.fi — Demo v2 Script
-## MINT → HALT → RESTORE with Circulating Supply Awareness
+# Converge.fi V4 — Demo Script
 
----
+## Overview
 
-## KEY IMPROVEMENT OVER v1
+3-phase demo: MINT → HALT → RESTORE using Chainlink CRE + ACTUS + GENIUS Act compliance.
 
-In v1, tokenSupply was a static $500K — it never changed across phases.
-In v2, tokenSupply = **circulatingSupply + mintAskAmount**, reflecting reality:
-- Phase A: 0 circulating + 100K ask = 100K to evaluate
-- Phase B: 100K circulating + 100K ask = 200K to evaluate
-- Phase C: 100K circulating + 100K ask = 200K to evaluate
+## Deployed Contracts (Ethereum Sepolia)
 
-This creates a **stronger narrative**: Phase B backing is 207% (PASSES a simple check),
-but liquidity is 7.2% (FAILS). Only Converge.fi catches the real risk.
+| Contract | Address |
+|----------|---------|
+| MultiAttributeRiskPolicy | `0x61dc9d5904094829fFcBAf7f1970b9d387Dc1d71` |
+| MultiAttributeConvergeRiskConsumer | `0x904b5C81705918b4B00439468a7e1d97dF2b6934` |
+| ConvergeStablecoin (cvUSD) | `0x19b6B9434D077DF9DFcE82be3568b4c0B39e6568` |
+| MockKeystoneForwarder (shared) | `0x15fC6ae953E024d975e77382eEeC56A9101f9F88` |
 
----
+## 8 Risk Metrics (all uint16, 256 bytes on-chain)
 
-## NUMBERS CROSS-CHECK
+| Field | Scale | Regulatory basis |
+|-------|-------|-----------------|
+| backingPct | Integer % (490 = 490%) | GENIUS Act §4(a)(1): ≥100% |
+| liquidityPct | Integer % (69 = 69%) | MiCA Art.54: ≥30% |
+| riskScore | 0-100 (0 = safe) | Composite: ≤70 |
+| maturityGapDays | WAM days | GENIUS Act: ≤93d Treasuries |
+| assetEligibilityPct | 0-100 (100 = all eligible) | GENIUS Act §4(a)(1)(A): =100% |
+| custodianDiversityScore | 0-100 (80 = diversified) | SVB lesson + MiCA Art.37 |
+| timestamp | Unix seconds | Staleness: ≤86400s |
+| scenarioId | keccak256 hash | Audit trail |
 
-| Metric | Phase A | Phase B | Phase C |
-|--------|---------|---------|---------|
-| Cash | $130,000 | $30,000 | $241,250 |
-| T-bills | $385,000 | $385,000 | $260,000 |
-| Total reserves | $515,000 | $415,000 | $501,250 |
-| Circulating supply | 0 | 100,000 | 100,000 |
-| Mint ask | 100,000 | 100,000 | 100,000 |
-| **Supply to evaluate** | **100,000** | **200,000** | **200,000** |
-| Backing % | 515.0% ✅ | 207.5% ✅ | 250.6% ✅ |
-| Liquidity % | 25.2% ✅ | 7.2% ❌ | 48.1% ✅ |
-| Risk score | 0 ✅ | 14 ✅ | 0 ✅ |
-| Mint gate | OPEN | **CLOSED** | OPEN |
-| **Blocked by** | — | **LIQUIDITY** (not backing!) | — |
-| cvUSD minted | +100,000 | BLOCKED | +100,000 |
-| cvUSD balance | 100,000 | 100,000 | 200,000 |
-| Penalty cost | $0 | $0 | $3,750 |
+## 4 Hard Gates (on-chain in isHealthy())
 
----
+- backing ≥ 100%
+- liquidity ≥ 30%
+- riskScore ≤ 70
+- eligibility = 100%
 
-## BEFORE DEMO — Clean Burn
+## Phase A — The Gold Standard ✅
 
-```powershell
-cd C:\SATHYA\CHAINAIM3003\mcp-servers\CRE\CRE11\converge.fi-1
-npx hardhat console --network sepolia
-> const s = await ethers.getContractAt("ConvergeStablecoin", "0x8D8131547Ec5Cb2fF1bB941a28fA20e347A928F3")
-> const bal = await s.balanceOf("0x0c5e419D592d116bD9cE3DeE3D613F8b166e42EE")
-> if (bal > 0n) await s.burn(bal)
-> (await s.totalSupply()).toString()
-> // Should be "0"
-```
+**Portfolio:** $340K cash (5 FDIC-insured banks × $68K) + $150K T-bills (14d + 28d) = $490K
+**Supply:** 100K tokens
 
----
+| Metric | Value | Gate |
+|--------|-------|------|
+| backingPct | 490% | ✅ ≥100 |
+| liquidityPct | 69% | ✅ ≥30 |
+| riskScore | **0** | ✅ ≤70 |
+| assetEligibilityPct | 100% | ✅ =100 |
+| custodianDiversityScore | 80 | — |
+| wamDays | 21 | — |
+| **mintGate** | **OPEN** | |
 
-## Phase A: HEALTHY → Mint 100,000 cvUSD ✅
+**Narrative:** All reserves GENIUS-eligible. Cash across 5 banks (SVB lesson). Both T-bills under 93-day limit. Risk score zero — every factor at safe floor.
 
-```powershell
-# Browser check first:
-# http://localhost:3001/api/demo/health-check
+## Phase B — Three Violations, One Backing Pass 🔴
 
-# Push healthy report on-chain
-cd C:\SATHYA\CHAINAIM3003\mcp-servers\CRE\CRE11\converge.fi-1
-$env:REPORT_MODE="demo-healthy-v2"; npx hardhat run scripts/push-report.ts --network sepolia
+**Changes:** Cash drained from 3 banks. Operator bought $120K corporate bond (NOT GENIUS-permitted). Supply doubled to 200K.
 
-# Mint
-npx hardhat console --network sepolia
-> const s = await ethers.getContractAt("ConvergeStablecoin", "0x8D8131547Ec5Cb2fF1bB941a28fA20e347A928F3")
-> const [w] = await ethers.getSigners()
-> await s.mint(w.address, ethers.parseEther("100000"))
-> // ✅ SUCCESS
-```
+| Metric | Value | Gate |
+|--------|-------|------|
+| backingPct | 140% | ✅ ≥100 |
+| liquidityPct | 4% | ❌ <30 |
+| riskScore | **71** | ❌ >70 |
+| assetEligibilityPct | 57% | ❌ <100 |
+| custodianDiversityScore | 50 | — |
+| wamDays | 174 | — |
+| **mintGate** | **CLOSED** | **3 gates fail** |
 
-Narrative: "Reserves are $515K. We're asking to mint 100K with 0 in circulation.
-515% backed, 25.2% liquid. All gates pass."
+**Narrative:** Simple backing check shows 140% — PASS. But Converge.fi catches THREE violations: liquidity crash (4%), ineligible assets (43% in corp bonds), and composite risk score 71. A basic 1:1 check would approve this mint.
 
----
+## Phase C — Recovery With Scars ✅
 
-## Phase B: STRESS → Mint 100,000 cvUSD 🔴 BLOCKED
+**Changes:** Corp bond sold at 5% loss ($120K → $114K cash). $90K emergency injection. All reserves now GENIUS-eligible.
 
-```powershell
-# Browser check:
-# http://localhost:3001/api/demo/health-check?phase=B
+| Metric | Value | Gate |
+|--------|-------|------|
+| backingPct | 182% | ✅ ≥100 |
+| liquidityPct | 59% | ✅ ≥30 |
+| riskScore | **9** | ✅ ≤70 |
+| assetEligibilityPct | 100% | ✅ =100 |
+| custodianDiversityScore | 54 | — |
+| wamDays | 21 | — |
+| **mintGate** | **OPEN** | |
 
-# Push stressed report on-chain
-$env:REPORT_MODE="demo-stressed-v2"; npx hardhat run scripts/push-report.ts --network sepolia
+**Narrative:** Operator corrected both mistakes. Score is 9, not zero — custodial diversity still at 54 (below 80 safe floor). The $114K bond sale proceeds and $90K injection landed at only 2 accounts. System says: approved, but rebalance your custodians.
 
-# Attempt mint — will FAIL
-npx hardhat console --network sepolia
-> const s = await ethers.getContractAt("ConvergeStablecoin", "0x8D8131547Ec5Cb2fF1bB941a28fA20e347A928F3")
-> const [w] = await ethers.getSigners()
-> await s.mint(w.address, ethers.parseEther("100000"))
-> // 🔴 REVERTS: MintBlockedLiquidity(720, 1000)
-```
-
-Narrative: "Cash was drained by $100K. But here's the critical insight:
-Backing is STILL 207% — a simple reserves-vs-supply check would APPROVE this mint.
-Only Converge.fi catches that $385K of reserves are locked in T-bills.
-Immediate cash is $30K — only 7.2% of reserves, below the 10% MiCA threshold.
-Mint BLOCKED by the liquidity gate, not the backing gate."
-
----
-
-## Phase C: RESTORE → Mint 100,000 cvUSD ✅
+## Demo Commands
 
 ```powershell
-# Browser check:
-# http://localhost:3001/api/demo/health-check?phase=C
+# Terminal 1: ACTUS server on 8082+8083
+# Terminal 2: Express server
+cd converge.fi-1/risk-engine && npm run dev
 
-# Push restored report on-chain
-$env:REPORT_MODE="demo-restored-v2"; npx hardhat run scripts/push-report.ts --network sepolia
+# Terminal 3: CRE workflow
+cd converge.fi-1
+cre workflow simulate workflows/risk-monitoring --target demo-A --broadcast
+Start-Sleep -Seconds 5
+cre workflow simulate workflows/risk-monitoring --target demo-B --broadcast
+Start-Sleep -Seconds 5
+cre workflow simulate workflows/risk-monitoring --target demo-C --broadcast
 
-# Mint
-npx hardhat console --network sepolia
-> const s = await ethers.getContractAt("ConvergeStablecoin", "0x8D8131547Ec5Cb2fF1bB941a28fA20e347A928F3")
-> const [w] = await ethers.getSigners()
-> await s.mint(w.address, ethers.parseEther("100000"))
-> // ✅ SUCCESS
-> (await s.balanceOf(w.address)).toString()
-> // "200000000000000000000000" = 200,000 cvUSD
+# Browser verification
+http://localhost:3001/api/demo/health-check           # Phase A
+http://localhost:3001/api/demo/health-check?phase=B    # Phase B
+http://localhost:3001/api/demo/health-check?phase=C    # Phase C
+
+# CLI verification
+cd iter-fin-demo-2
+node demo-runner.js --phase A
+node demo-runner.js --phase B
+node demo-runner.js --phase C
 ```
-
----
-
-## REFERENCES
-
-- ACTUS Taxonomy: https://www.actusfrf.org/taxonomy
-- ACTUS PAM: https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_PAM
-- Chainlink CRE: https://docs.chain.link/cre
-- MiCA Art.45: Immediate redemption at par (10% liquidity requirement)
-- GENIUS Act: 1:1 reserve backing requirement
-- OpenZeppelin ERC20: https://docs.openzeppelin.com/contracts/5.x/erc20
