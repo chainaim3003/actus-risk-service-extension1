@@ -100,6 +100,16 @@ public class ContractModel implements ContractModelProvider{
             	map.put("contractType", attributes.get("contractType"));
             	map.put("initialExchangeDate", LocalDateTime.parse((String)attributes.get("initialExchangeDate")));
 
+            	// ================================================================
+            	// Parse maturityDate (null-safe — not all contracts have maturity)
+            	// Used by stablecoin behavioral models to scope callouts to
+            	// the contract lifecycle [IED, maturityDate] window.
+            	// ================================================================
+            	if (attributes.get("maturityDate") != null) {
+            	    map.put("maturityDate", LocalDateTime.parse((String)attributes.get("maturityDate")));
+            	}
+            	// ================================================================
+
             	List<String> ppmdls = (List<String>)attributes.get("prepaymentModels");
             	System.out.println("**** fnp031: mdls = <" + ppmdls + ">");
             	map.put("prepaymentModels", ppmdls);

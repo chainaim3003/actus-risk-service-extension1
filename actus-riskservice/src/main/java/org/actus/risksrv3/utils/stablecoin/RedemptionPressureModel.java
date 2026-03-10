@@ -88,16 +88,19 @@ public class RedemptionPressureModel implements BehaviorRiskModelProvider {
 
     @Override
     public List<CalloutData> contractStart(ContractModel contract) {
-        // PP-before-IED fix: filter out callouts before contract starts
+        // Contract-lifecycle scoped callouts: filter to [IED, maturityDate] window
         LocalDateTime ied = contract.getAs("initialExchangeDate");
+        LocalDateTime maturity = contract.getAs("maturityDate");
         List<CalloutData> callouts = new ArrayList<>();
         for (String eventTime : this.monitoringEventTimes) {
-            if (ied != null) {
-                LocalDateTime eventDateTime = LocalDateTime.parse(eventTime);
-                if (eventDateTime.isBefore(ied)) {
-                    System.out.println("**** RedemptionPressureModel: SKIPPING pre-IED callout " + eventTime + " (IED=" + ied + ")");
-                    continue;
-                }
+            LocalDateTime eventDateTime = LocalDateTime.parse(eventTime);
+            if (ied != null && eventDateTime.isBefore(ied)) {
+                System.out.println("**** RedemptionPressureModel: SKIPPING pre-IED callout " + eventTime + " (IED=" + ied + ")");
+                continue;
+            }
+            if (maturity != null && eventDateTime.isAfter(maturity)) {
+                System.out.println("**** RedemptionPressureModel: SKIPPING post-maturity callout " + eventTime + " (maturity=" + maturity + ")");
+                continue;
             }
             callouts.add(new CalloutData(this.riskFactorId, eventTime, CALLOUT_TYPE));
         }
