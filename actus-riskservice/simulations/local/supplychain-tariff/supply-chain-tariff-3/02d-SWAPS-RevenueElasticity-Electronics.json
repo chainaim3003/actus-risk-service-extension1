@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "sc3-02d",
     "name": "02d-SWAPS-RevenueElasticity-Electronics",
-    "description": "SWAPS RevenueElasticity ELECTRONICS: \u03c3=8.1. 60% tariff \u2192 near-total collapse. $150K hedge. Survival mode.",
+    "description": "SWAPS RevenueElasticity ELECTRONICS: σ=8.1. 60% tariff → near-total collapse. $150K hedge. Survival mode.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -46,7 +46,7 @@
               "    pm.response.to.have.status(200);",
               "    var data = pm.response.json();",
               "    console.log('='.repeat(64));",
-              "    console.log('SWAPS RevenueElasticity ELECTRONICS: \u03c3=8');",
+              "    console.log('SWAPS RevenueElasticity ELECTRONICS: σ=8');",
               "    console.log('='.repeat(64));",
               "    var r = data[0];",
               "    if(r.status !== 'Success'){ console.log('FAILED: ' + (r.statusMessage||'unknown')); return; }",
@@ -74,8 +74,6 @@
               "        console.log('  ' + role + ' (' + l + '): IP=' + ipSum.toFixed(2));",
               "    });",
               "    console.log('='.repeat(64));",
-              "});",
-              "    console.log('');",
               "});"
             ]
           }
