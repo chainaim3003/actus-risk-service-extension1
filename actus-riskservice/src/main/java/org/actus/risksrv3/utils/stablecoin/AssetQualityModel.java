@@ -37,7 +37,12 @@ import java.util.Set;
  *
  *   Floor at qualityFloor (50) — L2B minimum classification.
  *
- * Returns: quality degradation fraction (0.0 = no degradation, up to 0.5)
+ * STRICT MODE (GENIUS Act §4(a)(1)):
+ *   If strictMode=true and hqlaMOC is provided, reads published HQLA score.
+ *   If HQLA < 100, returns maximum degradation (1.0) to trigger violation.
+ *   This enforces "all L1 assets" requirement with zero tolerance.
+ *
+ * Returns: quality degradation fraction (0.0 = no degradation, up to 1.0)
  */
 public class AssetQualityModel implements BehaviorRiskModelProvider {
 
@@ -54,6 +59,8 @@ public class AssetQualityModel implements BehaviorRiskModelProvider {
     private final double baseQuality;            // 100.0 (L1 HQLA)
     private final double qualityFloor;           // 50.0  (L2B minimum)
     private final double sovereignMaxDegradation; // 0.30 (30% max)
+    private final boolean strictMode;            // GENIUS Act compliance
+    private final String hqlaMOC;                // Optional published HQLA index
     private final List<String> monitoringEventTimes;
     private final MultiMarketRiskModel marketModel;
 
@@ -71,6 +78,8 @@ public class AssetQualityModel implements BehaviorRiskModelProvider {
         this.baseQuality            = data.getBaseQuality();
         this.qualityFloor           = data.getQualityFloor();
         this.sovereignMaxDegradation = data.getSovereignMaxDegradation();
+        this.strictMode             = data.isStrictMode();  // BACKWARD COMPATIBLE - defaults to false
+        this.hqlaMOC                = data.getHqlaMOC();    // BACKWARD COMPATIBLE - can be null
         this.monitoringEventTimes   = data.getMonitoringEventTimes();
         this.marketModel            = marketModel;
     }
@@ -105,13 +114,26 @@ public class AssetQualityModel implements BehaviorRiskModelProvider {
     }
 
     /**
-     * Asset quality degradation logic.
+     * Asset quality degradation logic with optional strict HQLA enforcement.
      *
-     * @return quality degradation fraction (0.0–0.5 range)
+     * @return quality degradation fraction (0.0 = no degradation, up to 1.0)
      */
     @Override
     public double stateAt(String id, LocalDateTime time, StateSpace states) {
 
+        // STRICT MODE: Check published HQLA score if configured (GENIUS Act §4(a)(1))
+        if (this.strictMode && this.hqlaMOC != null && !this.hqlaMOC.isEmpty()) {
+            double publishedHQLA = this.marketModel.stateAt(this.hqlaMOC, time);
+            if (publishedHQLA < 100.0) {
+                System.out.println("**** AssetQualityModel [STRICT]: time=" + time
+                        + " HQLA=" + String.format("%.1f", publishedHQLA)
+                        + " VIOLATION: GENIUS Act requires 100% L1 assets"
+                        + " degradationFraction=1.0 (MAX)");
+                return 1.0; // Maximum degradation - triggers violation
+            }
+        }
+
+        // Standard stress-based degradation logic
         double bankStress = this.marketModel.stateAt(this.bankStressIndexMOC, time);
         double sovereignStress = this.marketModel.stateAt(this.sovereignStressMOC, time);
 
@@ -137,6 +159,7 @@ public class AssetQualityModel implements BehaviorRiskModelProvider {
         double degradationFraction = (this.baseQuality - effectiveQuality) / this.baseQuality;
 
         System.out.println("**** AssetQualityModel: time=" + time
+                + " strictMode=" + this.strictMode
                 + " bankStress=" + String.format("%.3f", bankStress)
                 + " sovereignStress=" + String.format("%.3f", sovereignStress)
                 + " effectiveQuality=" + String.format("%.1f", effectiveQuality)
