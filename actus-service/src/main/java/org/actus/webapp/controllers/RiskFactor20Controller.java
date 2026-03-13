@@ -35,6 +35,7 @@ import org.actus.webapp.models.ReferenceIndex_rf2;
 import org.actus.webapp.models.ScenarioSimulationInput_rf2;
 import org.actus.webapp.models.ScenarioDescriptor;
 import org.actus.webapp.utils.MultiRiskFactorModel_rf2;
+import org.actus.webapp.utils.PPEventStateCorrector;
 import org.actus.webapp.utils.TimeSeries;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -148,8 +149,16 @@ public class RiskFactor20Controller {
 	        // apply schedule to contract
 	        schedule = ContractType.apply(schedule, model, observer);
 	        
-	        // transform schedule to event list and return
-	        return schedule.stream().map(e -> new Event(e)).collect(Collectors.toList());
+	        // transform schedule to event list
+	        List<Event> events = schedule.stream().map(e -> new Event(e)).collect(Collectors.toList());
+	        
+	        // POST-PROCESS: Apply PP state correction if enabled (OPTION B - Buffer-First)
+	        // NOTE: This code path (/rf2/eventsBatch) does not have access to original contract attributes.
+	        // Passing empty map disables the feature for this endpoint (backward compatible).
+	        // The feature is enabled via /rf2/scenarioSimulation endpoint which has attributes.
+	        events = PPEventStateCorrector.correctPPStates(events, new HashMap<>());
+	        
+	        return events;
 	    }
 	  
 	    List<ObservedData> marketData2RiskFactors(MarketData_rf2 marketData ){ 
@@ -308,8 +317,14 @@ public class RiskFactor20Controller {
 	        schedule = ContractType.apply(schedule, model, observer);
 
 	        System.out.println("****fnp008 ContractType.apply passed");       // fnp diagnostic jan 2023      
-	        // transform schedule to event list and return
-	        return schedule.stream().map(e -> new Event(e)).collect(Collectors.toList());
+	        // transform schedule to event list
+	        List<Event> events = schedule.stream().map(e -> new Event(e)).collect(Collectors.toList());
+	        
+	        // POST-PROCESS: Apply PP state correction if enabled (OPTION B - Buffer-First)
+	        // This code path has access to contract attributes including enablePPStateCorrection
+	        events = PPEventStateCorrector.correctPPStates(events, attributes);
+	        
+	        return events;
 	    }
 
 

@@ -19,6 +19,7 @@ import org.actus.risksrv3.models.Scenario;
 import org.actus.risksrv3.models.TwoDimensionalPrepaymentModelData;
 import org.actus.risksrv3.models.TwoDimensionalDepositTrxModelData;
 import org.actus.risksrv3.models.CollateralLTVModelData;
+import org.actus.risksrv3.models.BufferLTVModelData;
 import org.actus.risksrv3.models.ReferenceIndex;
 import org.actus.risksrv3.models.RiskFactorDescriptor;
 import org.actus.risksrv3.models.ScenarioDescriptor;
@@ -74,6 +75,7 @@ import org.actus.risksrv3.repository.ScenarioStore;
 import org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
 import org.actus.risksrv3.repository.TwoDimensionalDepositTrxModelStore;
 import org.actus.risksrv3.repository.CollateralLTVModelStore;
+import org.actus.risksrv3.repository.BufferLTVModelStore;
 // ====== STABLECOIN STORE IMPORTS ======
 import org.actus.risksrv3.repository.stablecoin.BackingRatioModelStore;
 import org.actus.risksrv3.repository.stablecoin.RedemptionPressureModelStore;
@@ -126,6 +128,7 @@ import org.actus.risksrv3.utils.TimeSeriesModel;
 import org.actus.risksrv3.utils.TwoDimensionalPrepaymentModel;
 import org.actus.risksrv3.utils.TwoDimensionalDepositTrxModel;
 import org.actus.risksrv3.utils.CollateralLTVModel;
+import org.actus.risksrv3.utils.BufferLTVModel;
 // ====== STABLECOIN MODEL UTIL IMPORTS ======
 import org.actus.risksrv3.utils.stablecoin.BackingRatioModel;
 import org.actus.risksrv3.utils.stablecoin.RedemptionPressureModel;
@@ -194,6 +197,8 @@ public class RiskObservationHandler {
 	private TwoDimensionalDepositTrxModelStore twoDimensionalDepositTrxModelStore;
 	@Autowired
 	private CollateralLTVModelStore collateralLTVModelStore;
+	@Autowired
+	private BufferLTVModelStore bufferLTVModelStore;
 
 	// ====== STABLECOIN MODEL STORES ======
 	@Autowired
@@ -390,7 +395,7 @@ public class RiskObservationHandler {
 				  }
 			  }
 			  // ================================================================
-			  // NEW: CollateralLTVModel branch
+			  // CollateralLTVModel branch (OPTION A)
 			  // ================================================================
 			  else if (rfd.getRiskFactorType().equals("CollateralLTVModel")) {
 				  Optional<CollateralLTVModelData> ocltv =
@@ -405,6 +410,22 @@ public class RiskObservationHandler {
 				  }
 				  else {
 					  throw new CollateralLTVModelNotFoundException(rfxid);
+				  }
+			  }
+			  // ================================================================
+			  // BufferLTVModel branch (OPTION B - Buffer-First Strategy)
+			  // ================================================================
+			  else if (rfd.getRiskFactorType().equals("BufferLTVModel")) {
+				  Optional<BufferLTVModelData> obltv =
+						  this.bufferLTVModelStore.findById(rfxid);
+				  if (obltv.isPresent()) {
+					  System.out.println("**** fnp211 found BufferLTVModel ; rfxid = " + rfxid);
+					  BufferLTVModel bltv =
+							  new BufferLTVModel(rfxid, obltv.get(), this.currentMarketModel);
+					  currentBehaviorModel.add(rfxid, bltv);
+				  }
+				  else {
+					  throw new BufferLTVModelNotFoundException(rfxid);
 				  }
 			  }
 			  // ================================================================

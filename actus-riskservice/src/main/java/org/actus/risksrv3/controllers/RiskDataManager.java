@@ -4,6 +4,7 @@ import  org.actus.risksrv3.models.Scenario;
 import  org.actus.risksrv3.models.TwoDimensionalPrepaymentModelData;
 import  org.actus.risksrv3.models.TwoDimensionalDepositTrxModelData;
 import  org.actus.risksrv3.models.CollateralLTVModelData;
+import  org.actus.risksrv3.models.BufferLTVModelData;
 // ====== STABLECOIN MODEL IMPORTS ======
 import  org.actus.risksrv3.models.stablecoin.BackingRatioModelData;
 import  org.actus.risksrv3.models.stablecoin.RedemptionPressureModelData;
@@ -55,6 +56,7 @@ import  org.actus.risksrv3.repository.ScenarioStore;
 import  org.actus.risksrv3.repository.TwoDimensionalPrepaymentModelStore;
 import  org.actus.risksrv3.repository.TwoDimensionalDepositTrxModelStore;
 import  org.actus.risksrv3.repository.CollateralLTVModelStore;
+import  org.actus.risksrv3.repository.BufferLTVModelStore;
 // ====== STABLECOIN STORE IMPORTS ======
 import  org.actus.risksrv3.repository.stablecoin.BackingRatioModelStore;
 import  org.actus.risksrv3.repository.stablecoin.RedemptionPressureModelStore;
@@ -121,6 +123,8 @@ public class RiskDataManager {
 	private TwoDimensionalDepositTrxModelStore twoDimensionalDepositTrxModelStore;
 	@Autowired
 	private CollateralLTVModelStore collateralLTVModelStore;
+	@Autowired
+	private BufferLTVModelStore bufferLTVModelStore;
 
 	// ====== STABLECOIN MODEL STORES ======
 	@Autowired
@@ -341,6 +345,33 @@ public class RiskDataManager {
     @GetMapping("/findAllCollateralLTVModels")
     public List<CollateralLTVModelData> getCollateralLTVModels() {
         return collateralLTVModelStore.findAll();
+    }
+
+    // =========================================================================
+    // BufferLTVModel CRUD endpoints - OPTION B (Buffer-First Strategy)
+    // =========================================================================
+
+    @PostMapping("/addBufferLTVModel")
+    public String saveBufferLTVModelData(
+    		@RequestBody BufferLTVModelData bufferLTVModelData){
+        bufferLTVModelStore.save(bufferLTVModelData);
+        return "BufferLTVModel added successfully\n";
+    }
+
+    @DeleteMapping("/deleteBufferLTVModel/{id}")
+    public String deleteBufferLTVModel(@PathVariable String id){
+        bufferLTVModelStore.deleteById(id);
+        return "BufferLTVModel deleted Successfully\n";
+    }
+
+    @GetMapping("/findBufferLTVModel/{id}")
+    public Optional<BufferLTVModelData> findBufferLTVModelData(@PathVariable String id) {
+        return bufferLTVModelStore.findById(id);
+    }
+
+    @GetMapping("/findAllBufferLTVModels")
+    public List<BufferLTVModelData> getBufferLTVModels() {
+        return bufferLTVModelStore.findAll();
     }
 
     // =========================================================================
