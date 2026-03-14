@@ -17,10 +17,10 @@
           }
         ],
         "url": {
-          "raw": "http://34.203.247.32:8083/addReferenceIndex",
+          "raw": "http://34.203.247.32:8083/eventsBatch",
           "protocol": "http",
           "host": ["34.203.247.32:8083"],
-          "path": ["addReferenceIndex"]
+          "path": ["eventsBatch"]
         },
 
         "body": {
