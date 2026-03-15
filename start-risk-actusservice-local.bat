@@ -3,6 +3,7 @@ echo.
 echo ==========================================
 echo  ACTUS Risk+ACTUS Service - LOCAL Docker Setup
 echo  Both services built from local source
+echo  FORCE REBUILD (--no-cache)
 echo ==========================================
 echo.
 
@@ -17,8 +18,8 @@ if %errorlevel% neq 0 (
 echo    actus-core copied to actus-service build context.
 
 echo.
-echo [2/6] Building Docker image from actus-riskservice (port 8082)...
-docker build -t actus-risksrv3-custom:latest "%~dp0actus-riskservice"
+echo [2/6] Building Docker image from actus-riskservice (port 8082) [NO CACHE]...
+docker build --no-cache -t actus-risksrv3-custom:latest "%~dp0actus-riskservice"
 if %errorlevel% neq 0 (
     echo ERROR: Docker build for riskservice failed. Make sure Docker Desktop is running.
     pause
@@ -26,8 +27,8 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [3/6] Building Docker image from actus-service (port 8083)...
-docker build -t actus-server-rf20-custom:latest "%~dp0actus-service"
+echo [3/6] Building Docker image from actus-service (port 8083) [NO CACHE]...
+docker build --no-cache -t actus-server-rf20-custom:latest "%~dp0actus-service"
 if %errorlevel% neq 0 (
     echo ERROR: Docker build for actus-service failed.
     pause
@@ -57,5 +58,7 @@ echo  Done! Both containers running with
 echo  fixed actus-core (SWAPS support).
 echo  Port 8082: actus-risksrv3-custom
 echo  Port 8083: actus-server-rf20-custom
+echo  
+echo  BUILT WITH --no-cache (FRESH BUILD)
 echo ==========================================
 pause

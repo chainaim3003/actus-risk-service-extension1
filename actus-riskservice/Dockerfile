@@ -36,10 +36,12 @@ RUN rm -rf src
 # Step 2: Copy and build the actus-riskservice project using Gradle
 COPY . /app/actus-riskservice
 WORKDIR /app/actus-riskservice
-RUN gradle clean
+
+# CRITICAL FIX: Actually compile the code during Docker build
+RUN gradle clean build -x test --no-daemon
 
 # Expose port 8082
 EXPOSE 8082
 
 # Default command
-CMD ["gradle", "bootRun"]
+CMD ["gradle", "bootRun", "--no-daemon"]

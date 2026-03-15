@@ -113,6 +113,62 @@ public class AllocationDriftModelData {
     // ================================================================
     private String mirrorSourceModelId;
 
+    // ================================================================
+    // FEATURE 1: Progressive Profit-Taking
+    // Automatically locks in profits incrementally every +20% gain.
+    // Hardcoded thresholds: +20%, +40%, +60%, +80%, +100%
+    // Each threshold triggers selling 20% of remaining position.
+    //
+    // enableProgressiveProfit: feature flag (default false)
+    // totalCostBasis: total USD invested (e.g. $2,000,000 for 20 BTC @ $100k)
+    //   - Used to calculate profit percentage: (currentValue - costBasis) / costBasis
+    //   - Updated after each profit-taking event (reduced proportionally)
+    // ================================================================
+    private boolean enableProgressiveProfit = false;
+    private double totalCostBasis = 0.0;
+
+    // ================================================================
+    // FEATURE 2: CFO Discretion Scoring
+    // Context-aware downside protection based on loss severity,
+    // risk tolerance, and portfolio health.
+    //
+    // enableCFODiscretion: feature flag (default false)
+    // riskTolerance: CONSERVATIVE (0.8), MODERATE (1.0), or AGGRESSIVE (1.2)
+    //   - Controls how aggressively to react to losses
+    //   - Lower = faster exits, Higher = more tolerant
+    // portfolioHealthMOC: Reference Index for total portfolio value
+    //   - e.g. "HT_PORTFOLIO_01" from JavaScript-derived data
+    //   - Used to calculate portfolio health score (YTD performance)
+    // cashBalanceMOC: Reference Index for cash balance
+    //   - e.g. "HT_CASH_BAL_01" from JavaScript-derived data
+    //   - Used to assess liquidity in portfolio health calculation
+    //
+    // Decision Score = (Loss Severity × Risk Weight) + Health Adjustment
+    // Action based on score: 0-1 HOLD, 1-2 WATCH, 2-3 TRIM 25%,
+    //                        3-4 TRIM 50%, 4-5 EXIT 75%, 5+ EXIT 100%
+    // ================================================================
+    private boolean enableCFODiscretion = false;
+    private String riskTolerance = "MODERATE";
+    private String portfolioHealthMOC = null;
+    private String cashBalanceMOC = null;
+
+    // ================================================================
+    // FEATURE 3: Reload Queue
+    // After stop-loss exit, preserves 50% of proceeds for re-entry.
+    // Hardcoded recovery threshold: +30% from bottom price.
+    //
+    // enableReloadQueue: feature flag (default false)
+    // reloadQueueUSD: amount in USD available for reload (runtime state)
+    //   - Populated when 100% exit occurs (50% of proceeds)
+    //   - Depleted when reload triggers
+    // bottomPriceForReload: lowest price seen after exit (runtime state)
+    //   - Tracked to determine +30% recovery trigger point
+    //   - Reset when reload executes
+    // ================================================================
+    private boolean enableReloadQueue = false;
+    private double reloadQueueUSD = 0.0;
+    private double bottomPriceForReload = 0.0;
+
     public AllocationDriftModelData() {
     }
 
@@ -153,4 +209,34 @@ public class AllocationDriftModelData {
 
     public String getMirrorSourceModelId() { return mirrorSourceModelId; }
     public void setMirrorSourceModelId(String mirrorSourceModelId) { this.mirrorSourceModelId = mirrorSourceModelId; }
+
+    // Progressive Profit-Taking
+    public boolean isEnableProgressiveProfit() { return enableProgressiveProfit; }
+    public void setEnableProgressiveProfit(boolean enableProgressiveProfit) { this.enableProgressiveProfit = enableProgressiveProfit; }
+
+    public double getTotalCostBasis() { return totalCostBasis; }
+    public void setTotalCostBasis(double totalCostBasis) { this.totalCostBasis = totalCostBasis; }
+
+    // CFO Discretion
+    public boolean isEnableCFODiscretion() { return enableCFODiscretion; }
+    public void setEnableCFODiscretion(boolean enableCFODiscretion) { this.enableCFODiscretion = enableCFODiscretion; }
+
+    public String getRiskTolerance() { return riskTolerance; }
+    public void setRiskTolerance(String riskTolerance) { this.riskTolerance = riskTolerance; }
+
+    public String getPortfolioHealthMOC() { return portfolioHealthMOC; }
+    public void setPortfolioHealthMOC(String portfolioHealthMOC) { this.portfolioHealthMOC = portfolioHealthMOC; }
+
+    public String getCashBalanceMOC() { return cashBalanceMOC; }
+    public void setCashBalanceMOC(String cashBalanceMOC) { this.cashBalanceMOC = cashBalanceMOC; }
+
+    // Reload Queue
+    public boolean isEnableReloadQueue() { return enableReloadQueue; }
+    public void setEnableReloadQueue(boolean enableReloadQueue) { this.enableReloadQueue = enableReloadQueue; }
+
+    public double getReloadQueueUSD() { return reloadQueueUSD; }
+    public void setReloadQueueUSD(double reloadQueueUSD) { this.reloadQueueUSD = reloadQueueUSD; }
+
+    public double getBottomPriceForReload() { return bottomPriceForReload; }
+    public void setBottomPriceForReload(double bottomPriceForReload) { this.bottomPriceForReload = bottomPriceForReload; }
 }

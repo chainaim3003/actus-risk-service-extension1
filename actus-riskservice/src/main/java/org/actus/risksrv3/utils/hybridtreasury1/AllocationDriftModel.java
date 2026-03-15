@@ -64,6 +64,13 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
 
     public static final String CALLOUT_TYPE = "MRD";
 
+    // Hardcoded constants for progressive profit-taking
+    private static final double[] PROFIT_THRESHOLDS = {0.20, 0.40, 0.60, 0.80, 1.00};
+    private static final double LOCK_PERCENTAGE = 0.20;
+
+    // Hardcoded constant for reload queue
+    private static final double RELOAD_RECOVERY_PCT = 0.30;
+
     private final String riskFactorId;
     private final String spotPriceMOC;
     private final String portfolioTotalValueMOC;
@@ -86,6 +93,23 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
     private AllocationDriftModel mirrorSource;          // wired by RiskObservationHandler after construction
     private final Map<LocalDateTime, Double> dollarPayoffCache = new HashMap<>();  // time → dollar amount from stateAt()
 
+    // Feature 1: Progressive Profit-Taking
+    private final boolean enableProgressiveProfit;
+    private double totalCostBasis;
+    private final boolean[] profitLockedFlags = new boolean[5];  // runtime state for 5 thresholds
+
+    // Feature 2: CFO Discretion
+    private final boolean enableCFODiscretion;
+    private final String riskTolerance;
+    private final String portfolioHealthMOC;
+    private final String cashBalanceMOC;
+    private double initialPortfolioValue = 0.0;  // runtime state for YTD calculation
+
+    // Feature 3: Reload Queue
+    private final boolean enableReloadQueue;
+    private double reloadQueueUSD;
+    private double bottomPriceForReload;
+
     public AllocationDriftModel(String riskFactorId,
                                 AllocationDriftModelData data,
                                 MultiMarketRiskModel marketModel) {
@@ -102,6 +126,21 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         this.signalMultiplier          = data.getSignalMultiplier();
         this.useFixedQuantity          = data.isUseFixedQuantity();
         this.mirrorSourceModelId       = data.getMirrorSourceModelId();
+
+        // Feature 1: Progressive Profit-Taking
+        this.enableProgressiveProfit   = data.isEnableProgressiveProfit();
+        this.totalCostBasis            = data.getTotalCostBasis();
+
+        // Feature 2: CFO Discretion
+        this.enableCFODiscretion       = data.isEnableCFODiscretion();
+        this.riskTolerance             = data.getRiskTolerance();
+        this.portfolioHealthMOC        = data.getPortfolioHealthMOC();
+        this.cashBalanceMOC            = data.getCashBalanceMOC();
+
+        // Feature 3: Reload Queue
+        this.enableReloadQueue         = data.isEnableReloadQueue();
+        this.reloadQueueUSD            = data.getReloadQueueUSD();
+        this.bottomPriceForReload      = data.getBottomPriceForReload();
     }
 
     /** Called by RiskObservationHandler to wire the source model reference */
@@ -141,6 +180,237 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
             callouts.add(new CalloutData(this.riskFactorId, eventTime, CALLOUT_TYPE));
         }
         return callouts;
+    }
+
+    /**
+     * FEATURE 1 HELPER: Check if progressive profit-taking threshold is met
+     * Returns the percentage to sell (0.0-1.0) if a threshold is hit, 0.0 otherwise
+     */
+    private double checkProgressiveProfit(double currentValue, double quantity) {
+        if (!this.enableProgressiveProfit || this.totalCostBasis <= 0.0 || quantity <= 0.0) {
+            return 0.0;
+        }
+
+        double profitPct = (currentValue - this.totalCostBasis) / this.totalCostBasis;
+
+        for (int i = 0; i < PROFIT_THRESHOLDS.length; i++) {
+            if (profitPct >= PROFIT_THRESHOLDS[i] && !this.profitLockedFlags[i]) {
+                // Lock this threshold
+                this.profitLockedFlags[i] = true;
+
+                // Sell LOCK_PERCENTAGE of current position
+                double sellFraction = LOCK_PERCENTAGE;
+
+                // Update cost basis: reduce proportionally by the sell fraction
+                this.totalCostBasis = this.totalCostBasis * (1.0 - sellFraction);
+
+                System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: PROGRESSIVE PROFIT"
+                        + " threshold=" + String.format("%.0f%%", PROFIT_THRESHOLDS[i] * 100)
+                        + " profitPct=" + String.format("%.2f%%", profitPct * 100)
+                        + " → SELL " + String.format("%.0f%%", sellFraction * 100)
+                        + " newCostBasis=" + String.format("%.2f", this.totalCostBasis));
+
+                return sellFraction;
+            }
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * FEATURE 2 HELPER: Calculate CFO discretion score based on loss severity,
+     * risk tolerance, and portfolio health
+     * Returns the percentage to sell (0.0-1.0) based on the discretion score
+     */
+    private double checkCFODiscretion(double currentValue, LocalDateTime time) {
+        if (!this.enableCFODiscretion || this.totalCostBasis <= 0.0) {
+            return 0.0;
+        }
+
+        // Calculate loss percentage
+        double lossPct = (currentValue - this.totalCostBasis) / this.totalCostBasis;
+
+        // Only trigger on losses
+        if (lossPct >= 0.0) {
+            return 0.0;
+        }
+
+        // Determine loss severity (1-5)
+        int severity;
+        double absLoss = Math.abs(lossPct);
+        if (absLoss >= 0.30) {
+            severity = 5;
+        } else if (absLoss >= 0.20) {
+            severity = 4;
+        } else if (absLoss >= 0.15) {
+            severity = 3;
+        } else if (absLoss >= 0.10) {
+            severity = 2;
+        } else if (absLoss >= 0.05) {
+            severity = 1;
+        } else {
+            return 0.0;  // Loss too small
+        }
+
+        // Map risk tolerance to weight
+        double riskWeight;
+        if ("CONSERVATIVE".equals(this.riskTolerance)) {
+            riskWeight = 0.8;
+        } else if ("AGGRESSIVE".equals(this.riskTolerance)) {
+            riskWeight = 1.2;
+        } else {  // MODERATE or any other value
+            riskWeight = 1.0;
+        }
+
+        // Calculate portfolio health adjustment
+        double healthAdjustment = calculatePortfolioHealthAdjustment(time);
+
+        // Calculate discretion score
+        double discretionScore = (severity * riskWeight) + healthAdjustment;
+
+        System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: CFO DISCRETION"
+                + " loss=" + String.format("%.2f%%", lossPct * 100)
+                + " severity=" + severity
+                + " riskWeight=" + String.format("%.1f", riskWeight)
+                + " healthAdj=" + String.format("%.1f", healthAdjustment)
+                + " score=" + String.format("%.2f", discretionScore));
+
+        // Map score to action
+        if (discretionScore >= 5.0) {
+            return 1.00;  // EXIT 100%
+        } else if (discretionScore >= 4.0) {
+            return 0.75;  // EXIT 75%
+        } else if (discretionScore >= 3.0) {
+            return 0.50;  // TRIM 50%
+        } else if (discretionScore >= 2.0) {
+            return 0.25;  // TRIM 25%
+        } else {
+            return 0.0;   // HOLD or WATCH
+        }
+    }
+
+    /**
+     * FEATURE 2 HELPER: Calculate portfolio health adjustment
+     * Returns adjustment value between -1.0 and +2.0
+     */
+    private double calculatePortfolioHealthAdjustment(LocalDateTime time) {
+        if (this.portfolioHealthMOC == null || this.cashBalanceMOC == null) {
+            return 0.0;  // No health data available
+        }
+
+        try {
+            double currentPortfolio = this.marketModel.stateAt(this.portfolioHealthMOC, time);
+            double cashBalance = this.marketModel.stateAt(this.cashBalanceMOC, time);
+
+            // Initialize first portfolio value for YTD calculation
+            if (this.initialPortfolioValue <= 0.0) {
+                this.initialPortfolioValue = currentPortfolio;
+            }
+
+            // Calculate YTD performance
+            double ytdPerformance = (currentPortfolio - this.initialPortfolioValue) / this.initialPortfolioValue;
+
+            // Calculate cash percentage
+            double cashPct = cashBalance / currentPortfolio;
+
+            // Determine health score (0-5)
+            int healthScore;
+            if (ytdPerformance >= 0.20 && cashPct >= 0.15) {
+                healthScore = 5;  // Excellent
+            } else if (ytdPerformance >= 0.10 && cashPct >= 0.12) {
+                healthScore = 4;  // Good
+            } else if (ytdPerformance >= 0.0 && cashPct >= 0.10) {
+                healthScore = 3;  // Adequate
+            } else if (ytdPerformance >= -0.05 && cashPct >= 0.08) {
+                healthScore = 2;  // Concerning
+            } else if (ytdPerformance >= -0.10) {
+                healthScore = 1;  // Poor
+            } else {
+                healthScore = 0;  // Critical
+            }
+
+            // Map health score to adjustment
+            if (healthScore == 5) {
+                return -1.0;  // Excellent: reduce urgency
+            } else if (healthScore == 4) {
+                return -0.5;  // Good: slightly reduce urgency
+            } else if (healthScore == 3) {
+                return 0.0;   // Adequate: no adjustment
+            } else if (healthScore == 2) {
+                return 0.5;   // Concerning: increase urgency
+            } else if (healthScore == 1) {
+                return 1.0;   // Poor: significantly increase urgency
+            } else {
+                return 2.0;   // Critical: maximum urgency
+            }
+
+        } catch (Exception e) {
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: WARNING"
+                    + " failed to calculate portfolio health: " + e.getMessage());
+            return 0.0;  // Default to no adjustment on error
+        }
+    }
+
+    /**
+     * FEATURE 3 HELPER: Check if reload opportunity exists (price recovered +30% from bottom)
+     * Returns the quantity to buy if reload should trigger, 0.0 otherwise
+     */
+    private double checkReloadOpportunity(double currentPrice, double quantity) {
+        if (!this.enableReloadQueue || this.reloadQueueUSD <= 0.0 || quantity > 0.0) {
+            return 0.0;  // No reload capital or already holding position
+        }
+
+        // Track bottom price after exit
+        if (this.bottomPriceForReload <= 0.0) {
+            this.bottomPriceForReload = currentPrice;
+            return 0.0;
+        }
+
+        // Update bottom if price drops further
+        if (currentPrice < this.bottomPriceForReload) {
+            this.bottomPriceForReload = currentPrice;
+            return 0.0;
+        }
+
+        // Check for +30% recovery from bottom
+        double recoveryPct = (currentPrice - this.bottomPriceForReload) / this.bottomPriceForReload;
+        if (recoveryPct >= RELOAD_RECOVERY_PCT) {
+            // Calculate how much to buy with reload capital
+            double buyQuantity = this.reloadQueueUSD / currentPrice;
+
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: RELOAD OPPORTUNITY"
+                    + " bottomPrice=" + String.format("%.2f", this.bottomPriceForReload)
+                    + " currentPrice=" + String.format("%.2f", currentPrice)
+                    + " recovery=" + String.format("%.2f%%", recoveryPct * 100)
+                    + " deployUSD=" + String.format("%.2f", this.reloadQueueUSD)
+                    + " → BUY " + String.format("%.6f", buyQuantity) + " units");
+
+            // Reset reload state
+            this.reloadQueueUSD = 0.0;
+            this.bottomPriceForReload = 0.0;
+
+            // Return negative fraction to signal BUY
+            // The quantity represents how much of the position to add
+            return -buyQuantity;  // Negative = buy signal
+        }
+
+        return 0.0;
+    }
+
+    /**
+     * FEATURE 3 HELPER: Handle 100% exit by setting up reload queue
+     */
+    private void handleFullExit(double exitProceeds) {
+        if (!this.enableReloadQueue || exitProceeds <= 0.0) {
+            return;
+        }
+
+        // Split proceeds: 50% to reload queue, 50% stays as T-Bills (handled by contract)
+        this.reloadQueueUSD = exitProceeds * 0.50;
+
+        System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: RELOAD QUEUE SET"
+                + " exitProceeds=" + String.format("%.2f", exitProceeds)
+                + " reloadCapital=" + String.format("%.2f", this.reloadQueueUSD));
     }
 
     @Override
@@ -241,10 +511,60 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
                 + " min=" + minAllocation
                 + " signalMultiplier=" + signalMultiplier);
 
+        // ================================================================
+        // ENHANCED LOGIC: Check features in priority order
+        // ================================================================
+
+        // PRIORITY 1: Progressive Profit-Taking
+        double profitSignal = checkProgressiveProfit(assetValue, quantity);
+        if (profitSignal > 0.0) {
+            double finalSignal = profitSignal * this.signalMultiplier;
+            double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
+            this.dollarPayoffCache.put(time, dollarPayoff);
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: PROGRESSIVE PROFIT TRIGGERED"
+                    + " → finalSignal=" + String.format("%.6f", finalSignal)
+                    + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
+            return finalSignal;
+        }
+
+        // PRIORITY 2: CFO Discretion
+        double discretionSignal = checkCFODiscretion(assetValue, time);
+        if (discretionSignal > 0.0) {
+            double finalSignal = discretionSignal * this.signalMultiplier;
+            double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
+            this.dollarPayoffCache.put(time, dollarPayoff);
+
+            // If 100% exit, set up reload queue
+            if (discretionSignal >= 1.0) {
+                handleFullExit(dollarPayoff);
+            }
+
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: CFO DISCRETION TRIGGERED"
+                    + " → finalSignal=" + String.format("%.6f", finalSignal)
+                    + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
+            return finalSignal;
+        }
+
+        // PRIORITY 3: Reload Queue
+        double reloadSignal = checkReloadOpportunity(spotPrice, quantity);
+        if (reloadSignal < 0.0) {
+            // Reload returns negative quantity to buy
+            // Convert to allocation signal based on portfolio
+            double buyValue = Math.abs(reloadSignal) * spotPrice;
+            double buyAllocation = buyValue / portfolioTotal;
+            double finalSignal = -buyAllocation * this.signalMultiplier;
+            double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
+            this.dollarPayoffCache.put(time, dollarPayoff);
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: RELOAD TRIGGERED"
+                    + " → finalSignal=" + String.format("%.6f", finalSignal)
+                    + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
+            return finalSignal;
+        }
+
+        // PRIORITY 4: Normal Drift Rebalancing (existing logic)
         if (allocation > this.maxAllocation) {
             double driftFraction = allocation - this.targetAllocation;
             double finalSignal = Math.min(1.0, driftFraction) * this.signalMultiplier;
-            // Cache dollar payoff for mirror models to read
             double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
             this.dollarPayoffCache.put(time, dollarPayoff);
             System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: OVERWEIGHT drift="
@@ -256,7 +576,6 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         } else if (allocation < this.minAllocation) {
             double driftFraction = this.targetAllocation - allocation;
             double finalSignal = -Math.min(1.0, driftFraction) * this.signalMultiplier;
-            // Cache dollar payoff for mirror models to read
             double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
             this.dollarPayoffCache.put(time, dollarPayoff);
             System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: UNDERWEIGHT drift="
@@ -265,11 +584,11 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
                     + " → finalSignal=" + String.format("%.6f", finalSignal)
                     + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
             return finalSignal;
-        } else {
-            // Cache zero for mirror models
-            this.dollarPayoffCache.put(time, 0.0);
-            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: WITHIN BAND → signal=0.0 (cached)");
-            return 0.0;
         }
+
+        // PRIORITY 5: Hold (no action)
+        this.dollarPayoffCache.put(time, 0.0);
+        System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: WITHIN BAND → signal=0.0 (cached)");
+        return 0.0;
     }
 }
