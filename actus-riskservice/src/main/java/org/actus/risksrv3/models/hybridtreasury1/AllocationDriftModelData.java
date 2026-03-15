@@ -169,6 +169,35 @@ public class AllocationDriftModelData {
     private double reloadQueueUSD = 0.0;
     private double bottomPriceForReload = 0.0;
 
+    // ================================================================
+    // FEATURE 4: Minimum Position Retention (Floor Protection)
+    // Prevents overselling by enforcing a minimum percentage of the
+    // initial position that must be retained at all times.
+    //
+    // minPositionRetention: minimum fraction of initial position to keep
+    //   - Range: 0.0 (no floor) to 1.0 (100% retention)
+    //   - Example: 0.50 = retain at least 50% of starting position
+    //   - Default: 0.0 (no floor protection - backward compatible)
+    //   - Applied BEFORE all sell signals (PP, CFO, drift rebalancing)
+    //   - Prevents the cumulative Progressive Profit sells from
+    //     overselling the position beyond the initial quantity
+    // ================================================================
+    private double minPositionRetention = 0.0;
+
+    // ================================================================
+    // FEATURE 5: Configurable Progressive Profit Lock Percentage
+    // Allows per-tier customization of how aggressively to lock profits
+    // at each threshold, replacing the hardcoded 20% constant.
+    //
+    // progressiveProfitLockPercentage: fraction to sell per threshold
+    //   - Range: 0.0 to 1.0
+    //   - Example: 0.20 = sell 20% of current position at each threshold
+    //   - Default: 0.20 (matches existing hardcoded behavior)
+    //   - Lower values (e.g. 0.10) = let positions run longer
+    //   - Higher values (e.g. 0.20) = lock profits more aggressively
+    // ================================================================
+    private double progressiveProfitLockPercentage = 0.20;
+
     public AllocationDriftModelData() {
     }
 
@@ -239,4 +268,16 @@ public class AllocationDriftModelData {
 
     public double getBottomPriceForReload() { return bottomPriceForReload; }
     public void setBottomPriceForReload(double bottomPriceForReload) { this.bottomPriceForReload = bottomPriceForReload; }
+
+    // Minimum Position Retention
+    public double getMinPositionRetention() { return minPositionRetention; }
+    public void setMinPositionRetention(double minPositionRetention) { 
+        this.minPositionRetention = minPositionRetention; 
+    }
+
+    // Progressive Profit Lock Percentage
+    public double getProgressiveProfitLockPercentage() { return progressiveProfitLockPercentage; }
+    public void setProgressiveProfitLockPercentage(double progressiveProfitLockPercentage) { 
+        this.progressiveProfitLockPercentage = progressiveProfitLockPercentage; 
+    }
 }

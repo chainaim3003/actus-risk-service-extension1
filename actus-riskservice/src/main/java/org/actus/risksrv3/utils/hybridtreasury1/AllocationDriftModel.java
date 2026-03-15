@@ -66,7 +66,6 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
 
     // Hardcoded constants for progressive profit-taking
     private static final double[] PROFIT_THRESHOLDS = {0.20, 0.40, 0.60, 0.80, 1.00};
-    private static final double LOCK_PERCENTAGE = 0.20;
 
     // Hardcoded constant for reload queue
     private static final double RELOAD_RECOVERY_PCT = 0.30;
@@ -110,6 +109,12 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
     private double reloadQueueUSD;
     private double bottomPriceForReload;
 
+    // Feature 4: Minimum Position Retention
+    private final double minPositionRetention;
+
+    // Feature 5: Progressive Profit Lock Percentage
+    private final double progressiveProfitLockPercentage;
+
     public AllocationDriftModel(String riskFactorId,
                                 AllocationDriftModelData data,
                                 MultiMarketRiskModel marketModel) {
@@ -141,6 +146,12 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         this.enableReloadQueue         = data.isEnableReloadQueue();
         this.reloadQueueUSD            = data.getReloadQueueUSD();
         this.bottomPriceForReload      = data.getBottomPriceForReload();
+
+        // Feature 4: Minimum Position Retention
+        this.minPositionRetention      = data.getMinPositionRetention();
+
+        // Feature 5: Progressive Profit Lock Percentage
+        this.progressiveProfitLockPercentage = data.getProgressiveProfitLockPercentage();
     }
 
     /** Called by RiskObservationHandler to wire the source model reference */
@@ -198,8 +209,8 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
                 // Lock this threshold
                 this.profitLockedFlags[i] = true;
 
-                // Sell LOCK_PERCENTAGE of current position
-                double sellFraction = LOCK_PERCENTAGE;
+                // Sell progressiveProfitLockPercentage of current position
+                double sellFraction = this.progressiveProfitLockPercentage;
 
                 // Update cost basis: reduce proportionally by the sell fraction
                 this.totalCostBasis = this.totalCostBasis * (1.0 - sellFraction);
@@ -413,6 +424,45 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
                 + " reloadCapital=" + String.format("%.2f", this.reloadQueueUSD));
     }
 
+    /**
+     * FEATURE 4 HELPER: Apply position floor protection
+     * Prevents selling below the minimum retention threshold
+     * 
+     * @param sellSignal The proposed sell signal (0.0-1.0)
+     * @param quantity Current position quantity
+     * @return Adjusted sell signal that respects the floor, or 0.0 if floor would be violated
+     */
+    private double applyPositionFloor(double sellSignal, double quantity) {
+        if (this.minPositionRetention <= 0.0 || sellSignal <= 0.0 || quantity <= 0.0) {
+            return sellSignal;  // No floor protection, no sell, or no position
+        }
+
+        // Calculate minimum quantity that must be retained (anchored to original positionQuantity)
+        double minQuantity = this.positionQuantity * this.minPositionRetention;
+
+        // Calculate maximum sellable quantity without breaching the floor
+        double maxSellableQuantity = Math.max(0.0, quantity - minQuantity);
+
+        // Convert to a signal fraction of current quantity
+        double maxSellSignal = maxSellableQuantity / quantity;
+
+        // CLIP (not block): reduce signal to exactly reach the floor, never go below it
+        if (sellSignal > maxSellSignal) {
+            double clippedSignal = Math.max(0.0, maxSellSignal);
+            System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: FLOOR CLIP"
+                    + " proposedSell=" + String.format("%.2f%%", sellSignal * 100)
+                    + " clippedTo=" + String.format("%.2f%%", clippedSignal * 100)
+                    + " quantity=" + String.format("%.6f", quantity)
+                    + " floor=" + String.format("%.6f", minQuantity)
+                    + " maxSellable=" + String.format("%.6f", maxSellableQuantity)
+                    + " (" + String.format("%.0f", this.minPositionRetention * 100) + "% of initial "
+                    + String.format("%.6f", this.positionQuantity) + ")");
+            return clippedSignal;  // Partial sell that exactly reaches the floor
+        }
+
+        return sellSignal;  // Sell is within limits, allow it unchanged
+    }
+
     @Override
     public double stateAt(String id, LocalDateTime time, StateSpace states) {
 
@@ -518,6 +568,12 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         // PRIORITY 1: Progressive Profit-Taking
         double profitSignal = checkProgressiveProfit(assetValue, quantity);
         if (profitSignal > 0.0) {
+            // Apply floor protection before finalizing the signal
+            profitSignal = applyPositionFloor(profitSignal, quantity);
+            if (profitSignal == 0.0) {
+                this.dollarPayoffCache.put(time, 0.0);
+                return 0.0;  // Floor blocked the sell
+            }
             double finalSignal = profitSignal * this.signalMultiplier;
             double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
             this.dollarPayoffCache.put(time, dollarPayoff);
@@ -530,6 +586,12 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         // PRIORITY 2: CFO Discretion
         double discretionSignal = checkCFODiscretion(assetValue, time);
         if (discretionSignal > 0.0) {
+            // Apply floor protection before finalizing the signal
+            discretionSignal = applyPositionFloor(discretionSignal, quantity);
+            if (discretionSignal == 0.0) {
+                this.dollarPayoffCache.put(time, 0.0);
+                return 0.0;  // Floor blocked the sell
+            }
             double finalSignal = discretionSignal * this.signalMultiplier;
             double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
             this.dollarPayoffCache.put(time, dollarPayoff);
@@ -564,7 +626,15 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
         // PRIORITY 4: Normal Drift Rebalancing (existing logic)
         if (allocation > this.maxAllocation) {
             double driftFraction = allocation - this.targetAllocation;
-            double finalSignal = Math.min(1.0, driftFraction) * this.signalMultiplier;
+            driftFraction = Math.min(1.0, driftFraction);
+            // Apply floor protection before finalizing the signal
+            driftFraction = applyPositionFloor(driftFraction, quantity);
+            if (driftFraction == 0.0) {
+                this.dollarPayoffCache.put(time, 0.0);
+                System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: OVERWEIGHT but FLOOR blocks sell");
+                return 0.0;
+            }
+            double finalSignal = driftFraction * this.signalMultiplier;
             double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
             this.dollarPayoffCache.put(time, dollarPayoff);
             System.out.println("**** AllocationDriftModel [" + this.riskFactorId + "]: OVERWEIGHT drift="
@@ -574,6 +644,7 @@ public class AllocationDriftModel implements BehaviorRiskModelProvider {
                     + " dollarPayoff=" + String.format("%.2f", dollarPayoff) + " (cached)");
             return finalSignal;
         } else if (allocation < this.minAllocation) {
+            // NOTE: Floor does NOT apply to BUY signals (negative), only SELL signals
             double driftFraction = this.targetAllocation - allocation;
             double finalSignal = -Math.min(1.0, driftFraction) * this.signalMultiplier;
             double dollarPayoff = finalSignal * Math.abs(states.notionalPrincipal);
