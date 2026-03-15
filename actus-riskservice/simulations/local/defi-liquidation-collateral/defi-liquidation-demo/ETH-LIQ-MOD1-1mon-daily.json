@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "47ef29d5-445d-4681-9db1-f6502e6d639b",
-    "name": "ETH-Liq-LTV-Coll1-TPP-1mon-30-daily",
+    "name": "ETH-LIQ-MOD1-1mon-daily",
     "description": "ACTUS DeFi ETH 30-day loan: COMPETING BEHAVIORAL RISKS simulation.\n\nTWO behavioral models run simultaneously:\n  1. TwoDimensionalPrepaymentModel — voluntary rate-driven deleveraging\n     (spread × age surface, weekly checks)\n  2. CollateralLTVModel — protocol-enforced LTV-driven liquidation\n     (daily monitoring, Aave V3-calibrated thresholds)\n\nScenario: Monotonic decline\n  ETH: $2,800 → $1,870 (steady 33% decline over 30 days)\n  Rate: 5.0% → 7.65% (gradual rise)\n  Collateral: 3.0 ETH, initial LTV = 59.5%\n\nScholarly Basis:\n  - Deng, Quigley & Van Order (2000), Econometrica: Competing risks framework\n  - Schwartz & Torous (1989, 1993): Rate-driven prepayment modeling\n  - Qin et al. (2021): DeFi liquidation mechanisms & thresholds\n  - Heimbach & Huang (2024), BIS WP 1171: DeFi leverage & voluntary buffers\n  - Lehar & Parlour (2022), BIS WP 1062: Systemic fragility, cascades\n  - Sadeghi (2025): Liquidation dynamics & transaction fees\n  - Aspris & Svec (2025): Skilled vs unskilled DeFi risk management\n\nOpen Postman Console (Ctrl+Alt+C) before running.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "52631821",
