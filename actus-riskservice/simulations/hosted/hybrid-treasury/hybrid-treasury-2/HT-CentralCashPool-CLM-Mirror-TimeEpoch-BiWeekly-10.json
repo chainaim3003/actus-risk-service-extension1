@@ -121,7 +121,7 @@
               "console.log('[Derive] OUTFLOWS_01: ' + JSON.stringify(outflowsData));",
               "",
               "// ── POST all three ────────────────────────────────────────────────",
-              "var host = pm.collectionVariables.get('model_host') || '34.203.247.32';",
+              "var host = pm.collectionVariables.get('model_host') || 'localhost';",
               "var port = pm.collectionVariables.get('model_port') || '8082';",
               "var base = 'http://' + host + ':' + port;",
               "",
