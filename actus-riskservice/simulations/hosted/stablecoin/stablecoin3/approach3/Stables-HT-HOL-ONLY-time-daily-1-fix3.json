@@ -849,7 +849,7 @@
                   "}",
                   "",
                   "// \u2500\u2500\u2500 ACTUS SIMULATION (single epoch) \u2500\u2500\u2500",
-                  "var simHost = pm.collectionVariables.get('actus_sim_host') || '34.203.247.32:8083';",
+                  "var simHost = pm.collectionVariables.get('actus_sim_host') || 'localhost:8083';",
                   "",
                   "function finalize(ppPayoff) {",
                   "    cash += ppPayoff;",

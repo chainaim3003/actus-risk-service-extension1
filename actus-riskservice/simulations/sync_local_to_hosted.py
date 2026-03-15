@@ -1,182 +1,165 @@
+"""
+sync_local_to_hosted.py
+=======================
+Syncs ACTUS Postman collection JSON files from LOCAL to HOSTED folder.
+Replaces all localhost/127.0.0.1 references with the AWS server IP.
+
+Usage:
+    python sync_local_to_hosted.py
+
+Or with custom paths:
+    python sync_local_to_hosted.py <local_folder> <hosted_folder>
+"""
+
 import os
-import re
-import hashlib
-import time
-import argparse
-import logging
+import sys
+import json
+import shutil
+from pathlib import Path
 from datetime import datetime
 
-# ─────────────────────────────────────────────
-#  CONFIG
-# ─────────────────────────────────────────────
-LOCAL_DIR  = r"C:/KALAIVANI M/ChainAim/mcp server/ACTUS-EXT/actus-risk-service-extension1/actus-riskservice/simulations/local"
-HOSTED_DIR = r"C:/KALAIVANI M/ChainAim/mcp server/ACTUS-EXT/actus-risk-service-extension1/actus-riskservice/simulations/hosted"
+# ── CONFIG: Edit these paths if needed ──────────────────────────────────────
+BASE = Path(r"C:/KALAIVANI M/ChainAim/mcp server\ACTUS-EXT/actus-risk-service-extension1/actus-riskservice\simulations")
 
-AWS_HOST = "34.203.247.32"
+LOCAL_DIR  = BASE / "local"
+HOSTED_DIR = BASE / "hosted"
 
-# How often to re-scan in watch mode (seconds)
-WATCH_INTERVAL = 10
+AWS_IP = "34.203.247.32"
 
-# ─────────────────────────────────────────────
-#  LOGGING
-# ─────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s  %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-log = logging.getLogger(__name__)
+# ── Replacement rules ────────────────────────────────────────────────────────
+REPLACEMENTS = [
+    (f"http://localhost:8083",   f"http://{AWS_IP}:8083"),
+    (f"http://localhost:8082",   f"http://{AWS_IP}:8082"),
+    (f"http://127.0.0.1:8083",  f"http://{AWS_IP}:8083"),
+    (f"http://127.0.0.1:8082",  f"http://{AWS_IP}:8082"),
+    (f'"localhost:8083"',        f'"{AWS_IP}:8083"'),
+    (f'"localhost:8082"',        f'"{AWS_IP}:8082"'),
+    (f'"127.0.0.1:8083"',       f'"{AWS_IP}:8083"'),
+    (f'"127.0.0.1:8082"',       f'"{AWS_IP}:8082"'),
+    (f'"localhost"',             f'"{AWS_IP}"'),
+    (f'"127.0.0.1"',            f'"{AWS_IP}"'),
+]
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
-# ─────────────────────────────────────────────
-#  HELPERS
-# ─────────────────────────────────────────────
-def transform_content(content: str) -> str:
-    """Replace all localhost references with the AWS host."""
-    content = content.replace("localhost:8083", f"{AWS_HOST}:8083")
-    content = content.replace("localhost:8082", f"{AWS_HOST}:8082")
-    # Bare localhost (no port) – must come last to avoid double-replacing
-    content = re.sub(r'localhost(?!:\d)', AWS_HOST, content)
-    return content
+def apply_replacements(text: str) -> tuple[str, list[str]]:
+    changes = []
+    for old, new in REPLACEMENTS:
+        if old in text:
+            count = text.count(old)
+            text = text.replace(old, new)
+            changes.append((old, new, count))
+    return text, changes
 
+def print_banner(title: str):
+    print("\n" + "═" * 64)
+    print(f"  {title}")
+    print("═" * 64)
 
-def file_hash(path: str) -> str:
-    """MD5 of a file's content – fast enough for JSON files."""
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def print_diff(changes: list):
+    for old, new, count in changes:
+        print(f"    {old}")
+        print(f"    → {new}  ({count}x)")
 
+# ── Main sync ────────────────────────────────────────────────────────────────
 
-def should_sync(local_path: str, hosted_path: str) -> tuple[bool, str]:
-    """
-    Returns (needs_sync: bool, reason: str).
+def sync(local_dir: Path, hosted_dir: Path):
+    print_banner("ACTUS LOCAL → HOSTED SYNC")
+    print(f"  Local  : {local_dir}")
+    print(f"  Hosted : {hosted_dir}")
+    print(f"  AWS IP : {AWS_IP}")
+    print(f"  Time   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    Decision tree:
-      1. Hosted file does not exist          → sync  (NEW)
-      2. Local mtime > hosted mtime          → sync  (NEWER)
-      3. Content hash differs                → sync  (CHANGED – e.g. mtime touched but content differs)
-      4. Everything matches                  → skip  (UNCHANGED)
-    """
-    if not os.path.exists(hosted_path):
-        return True, "NEW"
+    if not local_dir.exists():
+        print(f"\n[ERROR] Local folder not found:\n  {local_dir}")
+        sys.exit(1)
 
-    local_mtime  = os.path.getmtime(local_path)
-    hosted_mtime = os.path.getmtime(hosted_path)
+    json_files = sorted(local_dir.rglob("*.json"))
+    if not json_files:
+        print(f"\n[ERROR] No JSON files found in:\n  {local_dir}")
+        sys.exit(1)
 
-    if local_mtime > hosted_mtime + 0.5:       # 0.5 s tolerance for FAT/NTFS rounding
-        return True, "NEWER"
+    print(f"\n  Found {len(json_files)} JSON file(s) to sync\n")
 
-    # Same or older mtime – do a content-hash check to catch edge cases
-    # (e.g., file was restored, mtime reset, manual edits in hosted, etc.)
-    local_content    = open(local_path,  "r", encoding="utf-8").read()
-    transformed      = transform_content(local_content)
-    hosted_content   = open(hosted_path, "r", encoding="utf-8").read()
+    results = {"synced": [], "skipped": [], "errors": []}
 
-    if hashlib.md5(transformed.encode()).hexdigest() != hashlib.md5(hosted_content.encode()).hexdigest():
-        return True, "CHANGED"
+    for src in json_files:
+        rel      = src.relative_to(local_dir)
+        dst      = hosted_dir / rel
 
-    return False, "UNCHANGED"
-
-
-# ─────────────────────────────────────────────
-#  CORE SYNC
-# ─────────────────────────────────────────────
-def run_sync(local_dir: str = LOCAL_DIR, hosted_dir: str = HOSTED_DIR) -> dict:
-    stats = {"new": [], "updated": [], "skipped": [], "errors": []}
-
-    for root, dirs, files in os.walk(local_dir):
-        # Sort so output is deterministic
-        dirs.sort()
-        for filename in sorted(files):
-            if not filename.endswith(".json"):
-                continue
-
-            local_path   = os.path.join(root, filename)
-            relative     = os.path.relpath(local_path, local_dir)
-            hosted_path  = os.path.join(hosted_dir, relative)
-
-            try:
-                needs_sync, reason = should_sync(local_path, hosted_path)
-
-                if not needs_sync:
-                    stats["skipped"].append(relative)
-                    continue
-
-                # Read, transform, write
-                with open(local_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-
-                transformed = transform_content(content)
-
-                os.makedirs(os.path.dirname(hosted_path), exist_ok=True)
-                with open(hosted_path, "w", encoding="utf-8") as f:
-                    f.write(transformed)
-
-                # Preserve local mtime so next run can detect changes correctly
-                local_stat = os.stat(local_path)
-                os.utime(hosted_path, (local_stat.st_atime, local_stat.st_mtime))
-
-                if reason == "NEW":
-                    stats["new"].append(relative)
-                    log.info(f"[NEW]     {relative}")
-                else:
-                    stats["updated"].append(relative)
-                    log.info(f"[{reason:<7}] {relative}")
-
-            except Exception as exc:
-                stats["errors"].append((relative, str(exc)))
-                log.error(f"[ERROR]   {relative} – {exc}")
-
-    return stats
-
-
-def print_summary(stats: dict):
-    total = len(stats["new"]) + len(stats["updated"]) + len(stats["skipped"])
-
-    print("\n================ SYNC SUMMARY ================")
-    print(f"New files copied    : {len(stats['new'])}")
-    print(f"Updated files       : {len(stats['updated'])}")
-    print(f"Unchanged (skipped) : {len(stats['skipped'])}")
-    print(f"Errors              : {len(stats['errors'])}")
-    print(f"Total scanned       : {total}")
-    print("==============================================\n")
-    
-
-
-# ─────────────────────────────────────────────
-#  ENTRY POINT
-# ─────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(
-        description="Sync local ACTUS simulation JSONs → hosted (AWS) directory."
-    )
-    parser.add_argument(
-        "--watch", action="store_true",
-        help=f"Keep running and re-sync every {WATCH_INTERVAL}s"
-    )
-    parser.add_argument(
-        "--interval", type=int, default=WATCH_INTERVAL,
-        help="Watch interval in seconds (default: 10)"
-    )
-    args = parser.parse_args()
-
-    if args.watch:
-        log.info(f"Watch mode ON – scanning every {args.interval}s. Ctrl+C to stop.")
+        # Read source
         try:
-            while True:
-                log.info(f"=== Sync run @ {datetime.now().strftime('%H:%M:%S')} ===")
-                stats = run_sync()
-                print_summary(stats)
-                time.sleep(args.interval)
-        except KeyboardInterrupt:
-            log.info("Watch mode stopped.")
-    else:
-        log.info("=== One-shot sync ===")
-        stats = run_sync()
-        print_summary(stats)
+            original = src.read_text(encoding="utf-8")
+        except Exception as e:
+            print(f"  ✗ {rel}  →  READ ERROR: {e}")
+            results["errors"].append(str(rel))
+            continue
 
+        # Apply replacements
+        updated, changes = apply_replacements(original)
+
+        # Validate JSON
+        try:
+            json.loads(updated)
+        except json.JSONDecodeError as e:
+            print(f"  ✗ {rel}  →  JSON ERROR after update: {e}")
+            results["errors"].append(str(rel))
+            continue
+
+        # Write to hosted
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(updated, encoding="utf-8")
+
+        if changes:
+            print(f"  ✅ SYNCED   {rel.name}")
+            print_diff(changes)
+            results["synced"].append((rel, changes))
+        else:
+            print(f"  ─  NO CHANGE  {rel.name}")
+            results["skipped"].append(str(rel))
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    print_banner("SYNC SUMMARY")
+    print(f"  Total files : {len(json_files)}")
+    print(f"  ✅ Synced   : {len(results['synced'])}")
+    print(f"  ─  Skipped  : {len(results['skipped'])}")
+    print(f"  ✗  Errors   : {len(results['errors'])}")
+
+    if results["errors"]:
+        print("\n  Files with errors:")
+        for f in results["errors"]:
+            print(f"    - {f}")
+
+    # ── Display updated contents ──────────────────────────────────────────────
+    if results["synced"]:
+        print_banner("UPDATED FILE CONTENTS")
+        for rel, changes in results["synced"]:
+            dst = hosted_dir / rel
+            print(f"\n{'─' * 64}")
+            print(f"  FILE : {rel.name}")
+            print(f"  PATH : {dst}")
+            print(f"{'─' * 64}")
+            try:
+                content = json.loads(dst.read_text(encoding="utf-8"))
+                print(json.dumps(content, indent=2))
+            except Exception as e:
+                print(f"  [Could not display: {e}]")
+
+    print("\n" + "═" * 64)
+    print("  SYNC COMPLETE")
+    print("═" * 64 + "\n")
+
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) == 3:
+        local_dir  = Path(sys.argv[1])
+        hosted_dir = Path(sys.argv[2])
+    elif len(sys.argv) == 2:
+        local_dir  = Path(sys.argv[1])
+        hosted_dir = local_dir.parent.parent / "hosted" / local_dir.name
+    else:
+        local_dir  = LOCAL_DIR
+        hosted_dir = HOSTED_DIR
+
+    sync(local_dir.resolve(), hosted_dir.resolve())

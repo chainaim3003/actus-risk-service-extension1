@@ -815,7 +815,7 @@
                   "",
                   "var holderAction = 'HOLD';",
                   "var holderAmt = 0;",
-                  "var simHost = pm.collectionVariables.get('actus_sim_host') || '34.203.247.32:8083';",
+                  "var simHost = pm.collectionVariables.get('actus_sim_host') || 'localhost:8083';",
                   "",
                   "function finalize(ppPayoff) {",
                   "    if (ppPayoff > 0) { cash += ppPayoff; usdc = Math.max(0, usdc - ppPayoff); }",

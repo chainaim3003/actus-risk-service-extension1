@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "approach3-adaptive-epoch-100k-iter5-fix1",
     "name": "Approach3-AdaptiveEpochMonitoring-MultiMetric-100K-iter5-fix1",
-    "description": "APPROACH 3 iter5-fix1: ADAPTIVE EPOCH MONITORING — FULL CYCLE\n═══════════════════════════════════════════════════════════════\n\nFIX vs iter5 (two structural changes):\n\n  FIX A — {{epoch_body}} substitution:\n    iter5 POSTed ACTUS body via {{epoch_body}} variable — fails in\n    Collection Runner for large payloads. fix1 uses pm.sendRequest()\n    in pre-request; main request is a lightweight GET to port 8083.\n\n  FIX B — ECONNRESET on port 8082 (risksrv3 down):\n    iter5/fix1-prev: ALL main requests targeted port 8082, so if\n    risksrv3 is not running the runner aborts immediately.\n    fix1 final: ALL risksrv3 setup calls are done via pm.sendRequest()\n    with graceful error handling. Main request for every item points\n    to port 8083 (actus-server). risksrv3 down = warning logged,\n    simulation continues (behavioral models computed in JS anyway).\n\nFULL CYCLE: Runs until SIM_END_HOURS (240h = 10 days) OR MAX_EPOCHS (30),\nthen jumps to FINAL SUMMARY.\n\nARCHITECTURE:\n  1. Setup (7 items)  — risksrv3 calls via pm.sendRequest() in pre-req;\n                        main request = GET http://{{actus_sim_host}}/ (8083)\n  2. Initialize       — curves + portfolio + epoch state in environment\n  3. Epoch Evaluator  — pre-req: pm.sendRequest() to /eventsBatch (8083)\n                        test: 11 behavioral models, adaptive cadence, loop\n  4. Final Summary    — full timeline dashboard\n\nADAPTIVE CADENCE:\n  NORMAL=24h  WATCH=6h  ELEVATED=3h  CRITICAL=1h\n  Escalation: immediate on threshold proximity / EW signals\n  De-escalation: requires DEESC_SUSTAINED consecutive good epochs\n\n11 BEHAVIORAL MODELS (all computed in JS post-processing):\n  1.BackingRatioModel  2.RedemptionPressureModel  3.MaturityLadderModel\n  4.AssetQualityModel  5.ConcentrationDriftModel  6.ComplianceDriftModel\n  7.EarlyWarningModel  8.ContinuousAttestationModel\n  9.TwoDimensionalPrepayment  10.TwoDimensionalDepositTrx  11.EpochTrendModel\n\nPORTFOLIO ($100,000 — 7 ACTUS PAM contracts):\n  cash-reserve-001:   $10,000  HQLA L1  originated 2026-02-01\n  operating-cash-001: $10,000  HQLA L1  originated 2026-02-01\n  tbill-4wk-001:      $18,000  HQLA L1  matures 2026-03-10 (day 7)\n  tbill-13wk-001:     $28,000  HQLA L1  matures 2026-04-21 (day 49)\n  tbill-26wk-001:     $22,000  HQLA L1  matures 2026-06-15 (day 104)\n  commpaper-90d-001:   $8,000  HQLA L2A matures 2026-04-15\n  defi-yield-001:      $4,000  HQLA L2B matures 2026-06-01\n\nPREREQUISITES:\n  - actus-server MUST be running on 34.203.247.32:8083\n  - risksrv3 on 34.203.247.32:8082 is OPTIONAL (setup skips gracefully if down)\n  - Open Postman Console (Ctrl+Alt+C)\n  - Run via Collection Runner, NOT individual requests\n\nREFERENCES:\n  https://www.actusfrf.org/taxonomy\n  https://www.actusfrf.org/dictionary",
+    "description": "APPROACH 3 iter5-fix1: ADAPTIVE EPOCH MONITORING — FULL CYCLE\n═══════════════════════════════════════════════════════════════\n\nFIX vs iter5 (two structural changes):\n\n  FIX A — {{epoch_body}} substitution:\n    iter5 POSTed ACTUS body via {{epoch_body}} variable — fails in\n    Collection Runner for large payloads. fix1 uses pm.sendRequest()\n    in pre-request; main request is a lightweight GET to port 8083.\n\n  FIX B — ECONNRESET on port 8082 (risksrv3 down):\n    iter5/fix1-prev: ALL main requests targeted port 8082, so if\n    risksrv3 is not running the runner aborts immediately.\n    fix1 final: ALL risksrv3 setup calls are done via pm.sendRequest()\n    with graceful error handling. Main request for every item points\n    to port 8083 (actus-server). risksrv3 down = warning logged,\n    simulation continues (behavioral models computed in JS anyway).\n\nFULL CYCLE: Runs until SIM_END_HOURS (240h = 10 days) OR MAX_EPOCHS (30),\nthen jumps to FINAL SUMMARY.\n\nARCHITECTURE:\n  1. Setup (7 items)  — risksrv3 calls via pm.sendRequest() in pre-req;\n                        main request = GET http://{{actus_sim_host}}/ (8083)\n  2. Initialize       — curves + portfolio + epoch state in environment\n  3. Epoch Evaluator  — pre-req: pm.sendRequest() to /eventsBatch (8083)\n                        test: 11 behavioral models, adaptive cadence, loop\n  4. Final Summary    — full timeline dashboard\n\nADAPTIVE CADENCE:\n  NORMAL=24h  WATCH=6h  ELEVATED=3h  CRITICAL=1h\n  Escalation: immediate on threshold proximity / EW signals\n  De-escalation: requires DEESC_SUSTAINED consecutive good epochs\n\n11 BEHAVIORAL MODELS (all computed in JS post-processing):\n  1.BackingRatioModel  2.RedemptionPressureModel  3.MaturityLadderModel\n  4.AssetQualityModel  5.ConcentrationDriftModel  6.ComplianceDriftModel\n  7.EarlyWarningModel  8.ContinuousAttestationModel\n  9.TwoDimensionalPrepayment  10.TwoDimensionalDepositTrx  11.EpochTrendModel\n\nPORTFOLIO ($100,000 — 7 ACTUS PAM contracts):\n  cash-reserve-001:   $10,000  HQLA L1  originated 2026-02-01\n  operating-cash-001: $10,000  HQLA L1  originated 2026-02-01\n  tbill-4wk-001:      $18,000  HQLA L1  matures 2026-03-10 (day 7)\n  tbill-13wk-001:     $28,000  HQLA L1  matures 2026-04-21 (day 49)\n  tbill-26wk-001:     $22,000  HQLA L1  matures 2026-06-15 (day 104)\n  commpaper-90d-001:   $8,000  HQLA L2A matures 2026-04-15\n  defi-yield-001:      $4,000  HQLA L2B matures 2026-06-01\n\nPREREQUISITES:\n  - actus-server MUST be running on localhost:8083\n  - risksrv3 on localhost:8082 is OPTIONAL (setup skips gracefully if down)\n  - Open Postman Console (Ctrl+Alt+C)\n  - Run via Collection Runner, NOT individual requests\n\nREFERENCES:\n  https://www.actusfrf.org/taxonomy\n  https://www.actusfrf.org/dictionary",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -42,7 +42,7 @@
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
                 "// All risksrv3 calls done here via pm.sendRequest() — resilient to port 8082 being down",
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/addReferenceIndex',",
                 "    method: 'POST',",
@@ -90,7 +90,7 @@
             {
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/addReferenceIndex',",
                 "    method: 'POST',",
@@ -137,7 +137,7 @@
             {
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/addReferenceIndex',",
                 "    method: 'POST',",
@@ -180,7 +180,7 @@
             {
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/addTwoDimensionalPrepaymentModel',",
                 "    method: 'POST',",
@@ -226,7 +226,7 @@
             {
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/addTwoDimensionalDepositTrxModel',",
                 "    method: 'POST',",
@@ -274,7 +274,7 @@
             {
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/addScenario',",
                 "    method: 'POST',",
@@ -314,7 +314,7 @@
             {
               "listen": "prerequest",
               "script": {"type":"text/javascript","exec":[
-                "var riskHost = pm.collectionVariables.get('actus_risk_host') || '34.203.247.32:8082';",
+                "var riskHost = pm.collectionVariables.get('actus_risk_host') || 'localhost:8082';",
                 "pm.sendRequest({",
                 "    url: 'http://' + riskHost + '/findAllScenarios',",
                 "    method: 'GET',",
@@ -593,7 +593,7 @@
             "});",
             "",
             "// ── FIX A: Direct pm.sendRequest() to ACTUS ──",
-            "var actusHost = pm.collectionVariables.get('actus_sim_host') || '34.203.247.32:8083';",
+            "var actusHost = pm.collectionVariables.get('actus_sim_host') || 'localhost:8083';",
             "pm.sendRequest({",
             "    url: 'http://' + actusHost + '/eventsBatch',",
             "    method: 'POST',",

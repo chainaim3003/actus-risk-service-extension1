@@ -831,7 +831,7 @@
                   "// \u2500\u2500\u2500 HOLDER DECISION (RISK-FIRST) \u2500\u2500\u2500",
                   "var holderAction = 'HOLD';",
                   "var holderAmt = 0;",
-                  "var simHost = pm.collectionVariables.get('actus_sim_host') || '34.203.247.32:8083';",
+                  "var simHost = pm.collectionVariables.get('actus_sim_host') || 'localhost:8083';",
                   "",
                   "function finalize(ppPayoff) {",
                   "    // Mirror PP: USDC drains, cash increases",
