@@ -1,7 +1,7 @@
 {
   "info": {
     "_postman_id": "eth-portfolio-hourly-1week-v5-fixed",
-    "name": "ETH-Liq-LTV-TPP-COM-COL-BUF-SELL-1W-100Y1W-hourly-REV-V6",
+    "name": "ETH-LIQ-MOD2-hourly-for-a-week-REV-V6",
     "description": "REVISED V6: Guaranteed BufferLTV interventions - 1-week hourly simulation with $6,700 loan, -50% ETH crash, daily prepayments, and 18% buffer interventions. Demonstrates 3 BufferLTV interventions, flash crash response, and circuit breaker behavior.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
