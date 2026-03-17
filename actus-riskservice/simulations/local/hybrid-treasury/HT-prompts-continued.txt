@@ -1,0 +1,104 @@
+
+https://claude.ai/share/80691884-a18a-4161-befd-f3d2742da2a4 .   Please read thru the above link and all other chats about hybrid treasury models.  The code base is in C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-LOCAL-EXT\actus-risk-service-extension1. the behavior model details are in "C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-CP\treasury\Risk-Factor-2.md"
+
+"C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-CP\treasury\Risk_FACTOR_1.md"
+
+
+
+"C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-LOCAL-EXT\actus-risk-service-extension1\actus-riskservice\simulations\local\dynamic-discounting\dynamic-discounting-2\DynDisc2-MultiContract-AR-AP-Cash-timeepoch-mulfun-3.json"
+
+
+
+"C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-LOCAL-EXT\actus-risk-service-extension1\actus-riskservice\simulations\local\hybrid-treasury\hybrid-treasury-2\HT-CentralCashPool-CLM-Mirror-TimeEpoch-BiWeekly-14.json"
+
+
+
++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+please refer to the entire chat at ETH liquidation implementation design at https://claude.ai/share/c5352db8-c9b6-4b15-af28-7c4b5082a123.   The codebase is in C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-LOCAL-EXT\actus-risk-service-extension1. 
+
+ THE ACTUS resources are at www.actusfrf.org/
+in the code base
+
+the simulation 
+
+"C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-LOCAL-EXT\actus-risk-service-extension1\actus-riskservice\simulations\local\defi-liquidation-collateral\defi-liquidation-collateral-3\ETH-Liq-LTV-Coll1-TPP-1mon-30-daily.json"
+
+shows a currency loan, that is repaid in that currency, in unit of time accrual  , USING PAM ( PRINCIPAL at maturity ), which keeps updating the LTV as interest accrues. 
+
+"C:\SATHYA\CHAINAIM3003\mcp-servers\ACTUS-LOCAL-EXT\actus-risk-service-extension1\actus-riskservice\simulations\local\hybrid-treasury\hybrid-treasury-3\HT-Cash-DA-CLM-adaptive-time-1-fix2.json"
+
+collection shows a cash contract and a digital asset contract with CLM actual contract type ( CLM )
+
+
+
+
+
+
+
+ THE ACTUS resources are at www.actusfrf.org/
+
+
+Please stick to official documentation. DO NOT hallucinate.
+
+https://www.actusfrf.org/
+
+https://www.actusfrf.org/methodology 
+
+https://www.actusfrf.org/taxonomy
+
+https://www.actusfrf.org/dictionary
+
+https://www.actusfrf.org/aplicability
+
+https://www.actusfrf.org/rules
+
+https://www.actusfrf.org/copy-of-rules
+
+https://www.actusfrf.org/techspec
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_PAM
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_ANN
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_OPTNS
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_LAM
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_BCS
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_CAPFL
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_CSH
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_CEC
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_COM
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_LAX
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_FXOUT
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_FUTUR
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_CEG
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_NAM
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_SWPPV
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_STK
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_UMP
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_SWAPS
+
+https://documentation.actusfrf.org/docs/examples/basic-contract-types/example_CLM
+
+https://documentation.actusfrf.org/docs/examples/advanced-examples/singleContract
+
+https://documentation.actusfrf.org/docs/examples/advanced-examples/portfolioExample
+
+https://documentation.actusfrf.org/docs/examples/advanced-examples/VaR_example.. I
